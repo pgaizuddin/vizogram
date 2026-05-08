@@ -355,13 +355,60 @@
   #tour-card .skip { background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; text-decoration: underline; }
   #tour-card .skip:hover { color: var(--text); }
 
-  /* --- Mobile tweaks: collapse left panel on narrow screens --- */
+  /* --- Mobile drawer behavior (< 900px) --- */
+  /* Hamburger menu button — only visible on narrow screens */
+  #mobile-menu {
+    display: none;
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; font-size: 16px; cursor: pointer;
+    line-height: 1;
+  }
+  #mobile-menu:hover { border-color: var(--accent-2); }
+  /* Backdrop shown when a drawer is open */
+  #mobile-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(7,9,15,0.5);
+    animation: fade-in 0.2s ease-out;
+  }
+  body.drawer-open #mobile-backdrop { display: block; }
+
   @media (max-width: 900px) {
-    #app { grid-template-columns: 0 1fr 0; }
-    #left, #right { display: none; }
+    /* Single full-width column for the map area; sidebars become drawers. */
+    #app { grid-template-columns: minmax(0, 1fr); }
+    #left, #right {
+      position: fixed;
+      top: 56px;            /* below topbar */
+      bottom: 0;
+      width: 86%; max-width: 320px;
+      z-index: 60;
+      transform: translateX(-105%);
+      transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+      background: var(--panel);
+      border-left: none; border-right: 1px solid var(--border);
+      box-shadow: 8px 0 30px rgba(0,0,0,0.4);
+    }
+    #right {
+      left: auto; right: 0;
+      transform: translateX(105%);
+      border-right: none; border-left: 1px solid var(--border);
+      box-shadow: -8px 0 30px rgba(0,0,0,0.4);
+      width: 90%; max-width: 360px;
+    }
+    /* Drawer-open states */
+    #left.drawer-open  { transform: translateX(0); }
+    #right.drawer-open { transform: translateX(0); }
+    /* Show hamburger, hide brand subtitle (saves space) */
+    #mobile-menu { display: inline-block; }
     .brand .sub { display: none; }
-    #search { flex: 1 1 100px !important; min-width: 80px; }
+    .brand .sep { display: none; }
+    /* Trim other topbar items to fit */
+    #search { flex: 1 1 100px !important; min-width: 80px; max-width: 200px; }
     .vm-tabs button { padding: 6px 8px; font-size: 11px; }
+    .simple-toggle .lbl { display: none; }
+    #refresh-btn span:not(.icon) { display: none; }
+    #watchlist-btn span:not(.icon):not(#watchlist-count) { display: none; }
   }
 
   /* --- Signup modal (soft "30-second" registration prompt) --- */
@@ -443,6 +490,7 @@
 </head>
 <body>
 <header id="topbar">
+  <button id="mobile-menu" aria-label="Open menu" title="Filters & themes">☰</button>
   <div class="brand">
     <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Vizogram logo">
       <defs>
@@ -505,7 +553,7 @@
         <span style="font-size:10px;">Wide-moat only</span>
       </div>
       <div style="margin-top:8px;">
-        <label class="check" title="Show only companies whose supply position is a bottleneck (≤3 firms control ≥80% of supply) OR have moat 8+. This is the 'pricing power' subgraph."><input type="checkbox" id="only-bottlenecks" checked/> <b style="color:var(--text);">Bottlenecks &amp; high-moat only</b></label>
+        <label class="check" title="Show only companies whose supply position is a bottleneck (≤3 firms control ≥80% of supply) OR have moat 8+. This is the 'pricing power' subgraph."><input type="checkbox" id="only-bottlenecks"/> <b style="color:var(--text);">Bottlenecks &amp; high-moat only</b></label>
       </div>
     </div>
 
@@ -707,6 +755,8 @@
   </aside>
 </div>
 
+<div id="mobile-backdrop"></div>
+
 <!-- Onboarding tour (shown ONCE on first visit — gated by localStorage) -->
 <div id="tour-backdrop">
   <div id="tour-card" role="dialog" aria-modal="true">
@@ -731,7 +781,6 @@
 <!-- Signup modal (shown 30s after first visit; controlled by SIGNUP_ENDPOINT) -->
 <div id="signup-backdrop">
   <div id="signup-card" role="dialog" aria-modal="true" aria-labelledby="signup-title">
-    <button class="close" id="signup-close" aria-label="Dismiss">×</button>
     <div class="brand-row">
       <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
@@ -748,17 +797,16 @@
       <span>Vizogram</span>
     </div>
     <div id="signup-form-wrap">
-      <h2 id="signup-title">Like what you're seeing?</h2>
-      <p>Get notified the moment we ship the next tools — Hyperscaler Capex Tracker, Commodity Flow Map, and more. Free, no spam, unsubscribe anytime.</p>
+      <h2 id="signup-title">Free account required</h2>
+      <p>Vizogram is free for individual investors. Enter your email to continue exploring the global tech supply chain — no spam, unsubscribe anytime.</p>
       <form id="signup-form">
         <input type="email" id="signup-email" name="email" placeholder="you@example.com" required autocomplete="email"/>
         <!-- Web3Forms honeypot field (hidden from users; bots fill it and get rejected) -->
         <input type="checkbox" name="botcheck" style="display:none;" tabindex="-1" aria-hidden="true"/>
-        <button type="submit" class="primary" id="signup-submit">Get free updates</button>
+        <button type="submit" class="primary" id="signup-submit">Continue with email</button>
         <div class="error" id="signup-error"></div>
       </form>
-      <button class="later" id="signup-later">Maybe later</button>
-      <div class="footnote">Built for analysts. We use your email only to share updates about Vizogram.</div>
+      <div class="footnote">Built for analysts. Your email is used only to share updates about Vizogram.</div>
     </div>
     <div id="signup-success" style="display:none;" class="success">
       <div class="check">✓</div>
@@ -885,8 +933,8 @@ const state = {
   types: new Set(['company_public','company_private','material','process_step','end_market']),
   countries: null,     // filled in at init (needs ALL_COUNTRIES)
   minMoat: 1,
-  onlyBottle: true,    // default ON — show only bottlenecks/high-moat
-  hideLeaves: true,    // default ON — hide isolated nodes
+  onlyBottle: false,   // default OFF — let users see how expansive the model is
+  hideLeaves: true,    // default ON — hide isolated nodes (clutter reduction)
   hl: { enabled: true, depth: 3, upstream: true, downstream: true },
   valueFlow: false,
   onlyPriced: false,
@@ -2510,6 +2558,67 @@ const TOUR_KEY = 'vizogram_tour_v2_seen';
 // Now that INVESTMENT_THEMES is defined, paint the theme pills.
 renderThemePills();
 
+// ---- Mobile drawer behavior ----
+// On narrow screens (≤900px) the left/right sidebars are positioned as
+// drawers off-screen. The hamburger opens the left drawer; clicking a node
+// auto-opens the right drawer (so the user sees details without having to
+// hunt for it). Tap-outside / Esc close.
+(function initMobileDrawers(){
+  const left  = document.getElementById('left');
+  const right = document.getElementById('right');
+  const menu  = document.getElementById('mobile-menu');
+  const back  = document.getElementById('mobile-backdrop');
+
+  function isMobile(){ return window.innerWidth <= 900; }
+  function openDrawer(panel){
+    if(!isMobile()) return;
+    closeAllDrawers();
+    panel.classList.add('drawer-open');
+    document.body.classList.add('drawer-open');
+  }
+  function closeAllDrawers(){
+    left.classList.remove('drawer-open');
+    right.classList.remove('drawer-open');
+    document.body.classList.remove('drawer-open');
+  }
+
+  menu.addEventListener('click', () => openDrawer(left));
+  back.addEventListener('click', closeAllDrawers);
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeAllDrawers();
+  });
+  // Close drawers when window resizes back to desktop
+  window.addEventListener('resize', () => {
+    if(!isMobile()) closeAllDrawers();
+  });
+  // Auto-open right drawer when a node is clicked on mobile (so details show)
+  network.on('click', (params) => {
+    if(params.nodes.length && isMobile()){ openDrawer(right); }
+  });
+})();
+
+// ---- Bottleneck pulse animation ----
+// Bottleneck nodes get a soft red glow that gently breathes. Implemented by
+// oscillating the `shadow.size` on those nodes only, throttled to ~5fps and
+// paused when the tab isn't visible or the user isn't on the Map view.
+// Cost: ~80 bottlenecks × 5 updates/sec = 400 visNodes.update() calls/sec — light.
+const BOTTLENECK_IDS = nodesData.filter(n => n.bottleneck).map(n => n.id);
+let _pulseStart = Date.now();
+function pulseTick(){
+  if(document.visibilityState !== 'visible')  return;  // tab hidden — skip
+  if(state.viewMode !== 'map')                return;  // not on map — skip
+  if(!BOTTLENECK_IDS.length)                  return;
+  // Sin oscillator over a 1.4s period; size 10..18 (averages around 14)
+  const phase = ((Date.now() - _pulseStart) % 1400) / 1400;
+  const size  = 10 + (Math.sin(phase * Math.PI * 2) + 1) * 4;   // 10..18
+  const updates = BOTTLENECK_IDS.map(id => ({
+    id,
+    shadow: { enabled: true, color: 'rgba(210,31,60,0.55)', size: size, x: 0, y: 0 },
+  }));
+  visNodes.update(updates);
+}
+setInterval(pulseTick, 200);
+
 // ---- Signup modal (soft "30-second" prompt) ----
 // Disabled when neither SIGNUP_ENDPOINT nor SIGNUP_ACCESS_KEY is set. When set,
 // schedules the prompt to appear after SIGNUP_DELAY_MS, unless the user already
@@ -2521,18 +2630,12 @@ renderThemePills();
   const endpoint = SIGNUP_ACCESS_KEY ? 'https://api.web3forms.com/submit' : SIGNUP_ENDPOINT;
   if(!endpoint) return;
   const SIGNED_UP_KEY = 'vizogram_signed_up';
-  const DISMISSED_KEY = 'vizogram_signup_dismissed_until';
-  // Guard: never show if already signed up
+  // Mandatory signup: only signed-up users skip the modal. The previous
+  // "dismissed for 7 days" flag is intentionally ignored — anyone who
+  // dismissed before the gate became mandatory will see the modal again.
   try { if(localStorage.getItem(SIGNED_UP_KEY) === '1') return; } catch(_){}
-  // Guard: respect the 7-day dismissal window
-  try {
-    const until = parseInt(localStorage.getItem(DISMISSED_KEY) || '0', 10);
-    if(until && Date.now() < until) return;
-  } catch(_){}
 
   const backdrop = document.getElementById('signup-backdrop');
-  const closeBtn = document.getElementById('signup-close');
-  const laterBtn = document.getElementById('signup-later');
   const form     = document.getElementById('signup-form');
   const emailEl  = document.getElementById('signup-email');
   const submit   = document.getElementById('signup-submit');
@@ -2544,23 +2647,13 @@ renderThemePills();
     backdrop.classList.add('show');
     setTimeout(() => emailEl && emailEl.focus(), 320);  // after pop-in animation
   }
-  function dismiss(){
-    backdrop.classList.remove('show');
-    try {
-      const sevenDaysMs = 7 * 24 * 3600 * 1000;
-      localStorage.setItem(DISMISSED_KEY, String(Date.now() + sevenDaysMs));
-    } catch(_){}
-  }
   function markSignedUp(){
     try { localStorage.setItem(SIGNED_UP_KEY, '1'); } catch(_){}
   }
-
-  closeBtn.addEventListener('click', dismiss);
-  laterBtn.addEventListener('click', dismiss);
-  backdrop.addEventListener('click', (e) => { if(e.target === backdrop) dismiss(); });
-  document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape' && backdrop.classList.contains('show')) dismiss();
-  });
+  // NOTE: signup is now MANDATORY — no close, "Maybe later", Esc, or
+  // click-outside dismiss handlers. The only path past the modal is to
+  // submit a valid email. Once signed up, SIGNED_UP_KEY is set in
+  // localStorage and the modal won't appear on subsequent visits.
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -2572,6 +2665,12 @@ renderThemePills();
     }
     submit.disabled = true;
     submit.textContent = 'Submitting…';
+
+    // Dev-time guardrail: warn if the access key looks like a placeholder.
+    if(SIGNUP_ACCESS_KEY && /placeholder|replace/i.test(SIGNUP_ACCESS_KEY)){
+      console.warn('[Vizogram] SIGNUP_ACCESS_KEY appears to be a placeholder — submissions will fail. Rebuild with --signup-access-key "<your-real-key>".');
+    }
+
     try {
       const payload = {
         email,
@@ -2581,30 +2680,44 @@ renderThemePills();
         ua: navigator.userAgent,
       };
       // Web3Forms-style: include the access_key + a subject line so emails
-      // arrive looking like proper notifications instead of bare JSON.
+      // arrive looking like proper notifications instead of bare JSON. We
+      // intentionally do NOT include `botcheck` in the payload — the hidden
+      // checkbox on the form is enough as a honeypot. Sending an extra field
+      // sometimes tripped Web3Forms' spam filters.
       if(SIGNUP_ACCESS_KEY){
         payload.access_key = SIGNUP_ACCESS_KEY;
         payload.subject = '[Vizogram] new signup: ' + email;
         payload.from_name = 'Vizogram dashboard';
-        payload.botcheck = (form.querySelector('input[name=botcheck]') || {}).checked ? 'true' : '';
       }
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if(res.ok){
+
+      // Web3Forms returns JSON with {success: bool, message: string} regardless
+      // of HTTP status. Read the body and surface the real error to the user.
+      let data = null;
+      try { data = await res.json(); } catch(parseErr){ /* not JSON */ }
+      console.log('[Vizogram signup] response:', res.status, data);
+
+      const ok = res.ok && data && data.success !== false;
+      if(ok){
         formWrap.style.display = 'none';
         success.style.display = '';
         markSignedUp();
         setTimeout(() => backdrop.classList.remove('show'), 1800);
       } else {
-        errorEl.textContent = 'Something went wrong. Try again in a moment.';
+        // Surface the actual server message so debugging is possible.
+        const msg = (data && data.message) || `Server returned ${res.status}.`;
+        errorEl.textContent = msg;
         submit.disabled = false;
         submit.textContent = 'Get free updates';
       }
     } catch (err) {
-      errorEl.textContent = 'Network error. Check your connection.';
+      console.error('[Vizogram signup] fetch error:', err);
+      errorEl.textContent = 'Network error: ' + (err.message || 'check your connection');
       submit.disabled = false;
       submit.textContent = 'Get free updates';
     }
