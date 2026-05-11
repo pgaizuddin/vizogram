@@ -1,0 +1,3027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Anatomy of an AI Server Rack — Rack to Silicon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ANATOMY OF AN AI SERVER RACK
+   A cinematic progressive-zoom exploration: rack → server → chip → silicon
+   ============================================================ */
+
+:root {
+  --bg-0: #04060b;
+  --bg-1: #070b14;
+  --bg-2: #0d1320;
+  --panel: rgba(14, 20, 34, 0.72);
+  --panel-stroke: rgba(120, 180, 255, 0.12);
+  --ink-0: #f4f8ff;
+  --ink-1: #c2cde3;
+  --ink-2: #8a98b5;
+  --ink-3: #5b6987;
+  --accent: #76e4ff;
+  --accent-2: #b48cff;
+  --accent-3: #ffb066;
+  --accent-warm: #ff5d8f;
+  --grid: rgba(118, 228, 255, 0.06);
+  --grid-strong: rgba(118, 228, 255, 0.12);
+  --hl: #76e4ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg-0);
+  color: var(--ink-0);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  /* Ambient grid */
+  content: "";
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(118, 228, 255, 0.08), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(180, 140, 255, 0.07), transparent 55%),
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0/56px 56px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/56px 56px,
+    var(--bg-0);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  /* Vignette */
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ============================== TOP BAR ============================== */
+
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 56px;
+  display: flex; align-items: center;
+  padding: 0 22px;
+  z-index: 50;
+  background: linear-gradient(to bottom, rgba(4,6,11,0.9), rgba(4,6,11,0));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 600; font-size: 14px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-0);
+}
+.brand-mark {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: conic-gradient(from 200deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent));
+  box-shadow: 0 0 22px rgba(118,228,255,0.45);
+  position: relative;
+}
+.brand-mark::after {
+  content: ""; position: absolute; inset: 4px;
+  border-radius: 4px;
+  background: var(--bg-0);
+}
+
+.breadcrumbs {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 28px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--ink-2);
+  flex: 1;
+  flex-wrap: wrap;
+}
+.bc {
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color .2s, background .2s;
+  white-space: nowrap;
+}
+.bc:hover { color: var(--ink-0); background: rgba(255,255,255,0.04); }
+.bc.active { color: var(--accent); background: rgba(118,228,255,0.08); }
+.bc-sep { color: var(--ink-3); user-select: none; }
+
+.toolbar { display: flex; align-items: center; gap: 8px; }
+.tool-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--ink-1);
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+.tool-btn:hover { background: rgba(118,228,255,0.08); border-color: rgba(118,228,255,0.3); color: var(--ink-0); }
+.tool-btn.primary { background: var(--accent); color: #02101a; border-color: var(--accent); }
+.tool-btn.primary:hover { background: #9bedff; }
+
+/* ============================== SCENES ============================== */
+
+.scene-wrap {
+  position: fixed;
+  inset: 56px 460px 0 0;
+  z-index: 5;
+  transition: inset .4s cubic-bezier(.2,.7,.2,1);
+}
+.scene-wrap.full {
+  inset: 56px 0 0 0;
+}
+
+.scene {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1), filter .6s ease;
+  pointer-events: none;
+  filter: blur(8px);
+}
+.scene.active {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  filter: blur(0);
+}
+.scene.exiting {
+  opacity: 0;
+  transform: scale(0.92);
+  filter: blur(12px);
+}
+
+/* ============================== HERO ============================== */
+
+#scene-hero { padding: 0 32px; }
+.hero-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 24px;
+  text-align: center;
+  max-width: 880px;
+  position: relative;
+}
+.hero-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--accent);
+  display: flex; align-items: center; gap: 14px;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ""; height: 1px; width: 50px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+}
+.hero-title {
+  font-size: clamp(48px, 7vw, 92px);
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #b0c5e6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-title em {
+  font-style: normal;
+  background: linear-gradient(120deg, var(--accent) 0%, var(--accent-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 500;
+}
+.hero-sub {
+  font-size: clamp(15px, 1.4vw, 19px);
+  color: var(--ink-2);
+  line-height: 1.5;
+  max-width: 620px;
+  margin: 0;
+}
+.hero-cta-row {
+  display: flex; gap: 14px; align-items: center; margin-top: 8px;
+}
+.cta {
+  padding: 14px 26px;
+  background: var(--accent);
+  color: #021019;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600; font-size: 14px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 10px;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s;
+  box-shadow: 0 0 0 0 rgba(118,228,255,0);
+}
+.cta:hover { transform: translateY(-2px); background: #9bedff; box-shadow: 0 14px 50px rgba(118,228,255,0.35); }
+.cta-ghost {
+  padding: 13px 22px;
+  background: transparent;
+  color: var(--ink-1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 999px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.cta-ghost:hover { border-color: var(--accent); color: var(--ink-0); }
+
+.hero-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  width: 100%;
+  max-width: 720px;
+}
+.stat-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px; font-weight: 600;
+  color: var(--ink-0);
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+}
+
+/* Floating hero ambient particles */
+.hero-bg {
+  position: absolute;
+  inset: -200px;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hero-orbit {
+  position: absolute; left: 50%; top: 50%;
+  width: 700px; height: 700px;
+  border: 1px solid rgba(118,228,255,0.08);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: orbit 50s linear infinite;
+}
+.hero-orbit::before {
+  content: ""; position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent);
+  top: -4px; left: 50%;
+}
+.hero-orbit:nth-child(2) {
+  width: 980px; height: 980px;
+  border-color: rgba(180,140,255,0.07);
+  animation-duration: 80s; animation-direction: reverse;
+}
+.hero-orbit:nth-child(2)::before { background: var(--accent-2); box-shadow: 0 0 22px var(--accent-2); }
+.hero-orbit:nth-child(3) {
+  width: 1280px; height: 1280px;
+  border-color: rgba(255,176,102,0.05);
+  animation-duration: 120s;
+}
+.hero-orbit:nth-child(3)::before { background: var(--accent-3); box-shadow: 0 0 22px var(--accent-3); }
+@keyframes orbit { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* ============================== CANVAS / VIEWPORT ============================== */
+
+.viewport {
+  width: 100%; height: 100%;
+  position: relative;
+}
+.viewport svg {
+  width: 100%; height: 100%;
+  display: block;
+}
+
+/* Re-usable interactive group */
+.hot {
+  cursor: pointer;
+  transition: filter .25s ease, opacity .25s ease;
+}
+.hot:hover { filter: brightness(1.35) drop-shadow(0 0 12px var(--hl)); }
+.hot.dim { opacity: 0.35; }
+
+/* ============================== SIDE INFO PANEL (PERMANENT, RIGHT) ============================== */
+
+.info-panel {
+  position: fixed;
+  top: 56px; right: 0; bottom: 0;
+  width: 460px;
+  background: linear-gradient(180deg, rgba(10, 14, 24, 0.92) 0%, rgba(7, 11, 20, 0.95) 100%);
+  border-left: 1px solid var(--panel-stroke);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -30px 0 60px rgba(0,0,0,0.5);
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform .55s cubic-bezier(.2,.7,.2,1), opacity .35s ease;
+  pointer-events: auto;
+}
+.info-panel.hidden {
+  transform: translateX(105%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.info-head {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, rgba(118,228,255,0.04), transparent);
+}
+.info-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent);
+}
+.info-title {
+  font-size: 26px; font-weight: 500; margin: 6px 0 0; letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+.info-close {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--ink-1);
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  transition: all .2s;
+  flex-shrink: 0;
+  font-family: inherit;
+  font-weight: 600;
+}
+.info-close:hover { background: rgba(118,228,255,0.12); color: var(--accent); border-color: rgba(118,228,255,0.3); }
+
+.info-body {
+  padding: 22px 24px 32px;
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.info-body::-webkit-scrollbar { width: 6px; }
+.info-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+.info-body::-webkit-scrollbar-thumb:hover { background: rgba(118,228,255,0.3); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.info-section { animation: fadeIn .35s ease both; }
+
+/* Stacked sections inside the panel */
+.section {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.section:last-child { border-bottom: none; }
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.section-label::before {
+  content: "";
+  width: 18px; height: 1px;
+  background: linear-gradient(to right, var(--accent), transparent);
+}
+.section-label.muted { color: var(--ink-3); }
+.section-label.muted::before { background: linear-gradient(to right, var(--ink-3), transparent); }
+.section-label.warm { color: var(--accent-3); }
+.section-label.warm::before { background: linear-gradient(to right, var(--accent-3), transparent); }
+.section-label.violet { color: var(--accent-2); }
+.section-label.violet::before { background: linear-gradient(to right, var(--accent-2), transparent); }
+.section-label.warn { color: var(--accent-warm); }
+.section-label.warn::before { background: linear-gradient(to right, var(--accent-warm), transparent); }
+
+/* Empty / default state */
+.empty-state {
+  padding: 12px 0;
+}
+.empty-state .empty-illu {
+  width: 100%;
+  height: 100px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 25% 50%, rgba(118,228,255,0.18), transparent 50%),
+    radial-gradient(circle at 75% 50%, rgba(180,140,255,0.18), transparent 50%),
+    linear-gradient(rgba(118,228,255,0.06) 1px, transparent 1px) 0 0/12px 12px,
+    linear-gradient(90deg, rgba(118,228,255,0.06) 1px, transparent 1px) 0 0/12px 12px,
+    rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.empty-state .empty-illu::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(118,228,255,0.4), transparent);
+  width: 30%;
+  animation: scan 3s ease-in-out infinite;
+}
+@keyframes scan { 0%, 100% { transform: translateX(-50%); } 50% { transform: translateX(330%); } }
+
+.empty-state h3 {
+  font-size: 18px; font-weight: 500;
+  margin: 0 0 8px;
+  color: var(--ink-0);
+}
+.empty-state p {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.55;
+  margin: 0 0 14px;
+}
+.quicklist {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 14px;
+}
+.quicklist-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all .2s;
+  font-size: 13px;
+  color: var(--ink-1);
+}
+.quicklist-item:hover {
+  background: rgba(118,228,255,0.06);
+  border-color: rgba(118,228,255,0.25);
+  color: var(--ink-0);
+  transform: translateX(2px);
+}
+.quicklist-item .ql-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px var(--accent);
+}
+.quicklist-item .ql-meta {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+}
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px 14px;
+  margin-top: 4px;
+}
+.kv-grid dt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-top: 2px;
+}
+.kv-grid dd {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-1);
+  line-height: 1.45;
+}
+.kv-grid dd b { color: var(--ink-0); font-weight: 500; }
+
+.info-body p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-1);
+  margin: 0 0 12px;
+}
+.info-body p:last-child { margin-bottom: 0; }
+.info-body strong { color: var(--ink-0); font-weight: 600; }
+.info-body em { color: var(--accent); font-style: normal; }
+
+.cost-bar {
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 10px;
+}
+.cost-bar-label {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--ink-2);
+  margin-bottom: 8px;
+  font-family: 'JetBrains Mono', monospace; letter-spacing: 0.05em;
+}
+.cost-bar-label b { color: var(--accent); font-size: 16px; font-weight: 600; }
+.cost-bar-track {
+  height: 4px; background: rgba(255,255,255,0.05);
+  border-radius: 2px; overflow: hidden;
+}
+.cost-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 2px;
+  transition: width .8s cubic-bezier(.2,.7,.2,1);
+}
+
+.maker-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 10px;
+}
+.maker-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 5px 9px;
+  background: rgba(118,228,255,0.06);
+  border: 1px solid rgba(118,228,255,0.16);
+  border-radius: 6px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.maker-pill.primary {
+  background: rgba(118,228,255,0.15);
+  border-color: rgba(118,228,255,0.4);
+  color: var(--ink-0);
+}
+
+.zoom-cta {
+  margin-top: 18px;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(120deg, rgba(118,228,255,0.12), rgba(180,140,255,0.12));
+  border: 1px solid rgba(118,228,255,0.3);
+  color: var(--ink-0);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: all .2s ease;
+}
+.zoom-cta:hover { background: linear-gradient(120deg, rgba(118,228,255,0.22), rgba(180,140,255,0.22)); transform: translateY(-1px); }
+.zoom-cta::after { content: "→"; font-family: 'JetBrains Mono', monospace; }
+
+/* ============================== TOOLTIP ============================== */
+.tooltip {
+  position: fixed;
+  z-index: 60;
+  background: rgba(8, 12, 22, 0.95);
+  border: 1px solid rgba(118,228,255,0.25);
+  color: var(--ink-0);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -100%) translateY(-12px);
+  transition: opacity .15s ease;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+}
+.tooltip.show { opacity: 1; }
+.tooltip-name { font-weight: 600; font-size: 13px; }
+.tooltip-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--accent);
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+/* ============================== MINIMAP ============================== */
+.minimap {
+  position: fixed;
+  bottom: 18px; left: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-stroke);
+  border-radius: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 14px;
+  z-index: 40;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+.minimap-title {
+  font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+.minimap-step {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-2);
+  transition: all .2s;
+  border: 1px solid transparent;
+}
+.minimap-step:hover { color: var(--ink-0); background: rgba(255,255,255,0.04); }
+.minimap-step.active {
+  color: var(--accent);
+  background: rgba(118,228,255,0.08);
+  border-color: rgba(118,228,255,0.2);
+}
+.minimap-step.disabled { opacity: 0.4; cursor: default; }
+.minimap-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+.minimap-step.active .minimap-dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.minimap-zoom {
+  font-size: 9px;
+  color: var(--ink-3);
+  margin-left: auto;
+  letter-spacing: 0.08em;
+}
+
+/* ============================== HELP / HINT ============================== */
+.hint {
+  position: fixed;
+  bottom: 22px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0;
+  transition: opacity .4s;
+}
+.hint.show { opacity: 1; }
+.hint kbd {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: 0 3px;
+  color: var(--accent);
+  font-family: inherit;
+}
+
+/* ============================== ANIMATIONS ============================== */
+@keyframes ledPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes fanSpin { to { transform: rotate(360deg); } }
+@keyframes flowDash { to { stroke-dashoffset: -40; } }
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* ============================== UTIL ============================== */
+.label-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  fill: var(--ink-2);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.label-strong { fill: var(--ink-0); font-weight: 600; }
+
+/* Tablet — narrower panel */
+@media (max-width: 1180px) {
+  .info-panel { width: 380px; }
+  .scene-wrap { inset: 56px 380px 0 0; }
+}
+
+/* Mobile — panel slides up from bottom, scene takes full width */
+@media (max-width: 860px) {
+  .info-panel {
+    width: 100%;
+    left: 0; right: 0; top: auto;
+    bottom: 0;
+    height: 55vh;
+    border-left: none;
+    border-top: 1px solid var(--panel-stroke);
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.5);
+  }
+  .scene-wrap { inset: 56px 0 55vh 0; }
+  .minimap { display: none; }
+  .breadcrumbs { display: none; }
+  .info-title { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================= TOP BAR ================= -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <span>Rack&nbsp;/&nbsp;Silicon</span>
+  </div>
+  <div class="breadcrumbs" id="breadcrumbs"></div>
+  <div class="toolbar">
+    <button class="tool-btn" id="btn-tour">Guided Tour</button>
+    <button class="tool-btn" id="btn-back">← Back</button>
+    <button class="tool-btn" id="btn-home">Home</button>
+  </div>
+</div>
+
+<!-- ================= SCENE WRAPPER ================= -->
+<div class="scene-wrap full" id="scene-wrap">
+
+  <!-- ================= HERO ================= -->
+  <section class="scene active" id="scene-hero">
+    <div class="hero-bg">
+      <div class="hero-orbit"></div>
+      <div class="hero-orbit"></div>
+      <div class="hero-orbit"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-eyebrow">Interactive · Educational · Cinematic</div>
+      <h1 class="hero-title">Anatomy of an<br/><em>AI Data Centre</em></h1>
+      <p class="hero-sub">
+        Zoom from a hyperscale AI campus down to the transistors of a single GPU die.
+        Explore what each component is, who builds it, what it costs, and why it matters
+        for modern AI training and inference.
+      </p>
+      <div class="hero-cta-row">
+        <button class="cta" id="btn-begin">Begin Exploration <span aria-hidden="true">→</span></button>
+        <button class="cta-ghost" id="btn-tour-2">Take guided tour</button>
+      </div>
+      <div class="hero-stats">
+        <div>
+          <div class="stat-num">96 MW</div>
+          <div class="stat-label">IT load per AI campus</div>
+        </div>
+        <div>
+          <div class="stat-num">~$4 B</div>
+          <div class="stat-label">Capex per build</div>
+        </div>
+        <div>
+          <div class="stat-num">18,000</div>
+          <div class="stat-label">GPUs on site</div>
+        </div>
+        <div>
+          <div class="stat-num">208 B</div>
+          <div class="stat-label">Transistors per GPU</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LEVEL 0 — DATA CENTRE ================= -->
+  <section class="scene" id="scene-datacenter">
+    <div class="viewport">
+      <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="dcGround" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#0a1224"/>
+            <stop offset="1" stop-color="#040810"/>
+          </linearGradient>
+          <linearGradient id="hallFloor" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#0e1830"/>
+            <stop offset="1" stop-color="#070d1d"/>
+          </linearGradient>
+          <linearGradient id="aiPodGlow" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="rgba(118,228,255,0.35)"/>
+            <stop offset="1" stop-color="rgba(118,228,255,0.05)"/>
+          </linearGradient>
+          <linearGradient id="rackTile" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#1f2a48"/>
+            <stop offset="1" stop-color="#0d1428"/>
+          </linearGradient>
+          <linearGradient id="rackTileHot" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#2c4280"/>
+            <stop offset="1" stop-color="#142354"/>
+          </linearGradient>
+          <radialGradient id="dcHaloA" cx="0.5" cy="0.5">
+            <stop offset="0" stop-color="rgba(118,228,255,0.18)"/>
+            <stop offset="1" stop-color="rgba(118,228,255,0)"/>
+          </radialGradient>
+          <radialGradient id="dcHaloB" cx="0.5" cy="0.5">
+            <stop offset="0" stop-color="rgba(255,176,102,0.16)"/>
+            <stop offset="1" stop-color="rgba(255,176,102,0)"/>
+          </radialGradient>
+          <pattern id="dcGrid" width="36" height="36" patternUnits="userSpaceOnUse">
+            <rect width="36" height="36" fill="url(#dcGround)"/>
+            <line x1="0" y1="0" x2="36" y2="0" stroke="rgba(118,228,255,0.05)" stroke-width="0.5"/>
+            <line x1="0" y1="0" x2="0" y2="36" stroke="rgba(118,228,255,0.05)" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Ground / site -->
+        <rect x="0" y="0" width="1400" height="900" fill="url(#dcGrid)"/>
+
+        <!-- Halos behind the building -->
+        <ellipse cx="700" cy="500" rx="600" ry="380" fill="url(#dcHaloA)" />
+        <ellipse cx="1180" cy="320" rx="180" ry="150" fill="url(#dcHaloB)" />
+
+        <!-- Outer site fence (decorative) -->
+        <rect x="40" y="80" width="1320" height="780" rx="12" fill="none" stroke="rgba(118,228,255,0.08)" stroke-dasharray="6 8"/>
+
+        <!-- Title -->
+        <text x="62" y="62" class="label-text label-strong" style="font-size:13px; letter-spacing:0.2em;">HYPERSCALE AI DATA CENTRE · 96 MW IT LOAD · 18,000 GPUs</text>
+        <text x="1338" y="62" text-anchor="end" class="label-text" style="font-size:11px; fill:#76e4ff;">SITE PLAN · CLICK A POD TO ZOOM IN</text>
+
+        <!-- ===== Utility incoming (from the left) ===== -->
+        <g class="hot" data-comp="dc-utility">
+          <line x1="40" y1="450" x2="180" y2="450" stroke="#ffb066" stroke-width="2" stroke-dasharray="4 6">
+            <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.4s" repeatCount="indefinite"/>
+          </line>
+          <line x1="40" y1="470" x2="180" y2="470" stroke="#ffb066" stroke-width="2" stroke-dasharray="4 6">
+            <animate attributeName="stroke-dashoffset" from="0" to="-20" dur="1.4s" begin="0.6s" repeatCount="indefinite"/>
+          </line>
+          <text x="46" y="438" class="label-text" style="font-size:9px; fill:#ffb066;">230 kV GRID</text>
+        </g>
+
+        <!-- Substation / transformer yard -->
+        <g class="hot" data-comp="dc-power">
+          <rect x="60" y="500" width="160" height="250" rx="6" fill="#101a2c" stroke="rgba(255,176,102,0.45)"/>
+          <text x="140" y="524" text-anchor="middle" class="label-text" style="font-size:10px; fill:#ffb066;">SUBSTATION</text>
+          <!-- transformer cells -->
+          <g fill="#1a2440" stroke="rgba(255,176,102,0.3)">
+            <rect x="76"  y="536" width="56" height="56" rx="3"/>
+            <rect x="148" y="536" width="56" height="56" rx="3"/>
+            <rect x="76"  y="600" width="56" height="56" rx="3"/>
+            <rect x="148" y="600" width="56" height="56" rx="3"/>
+          </g>
+          <g fill="#ffb066" opacity="0.5">
+            <circle cx="104" cy="564" r="2"><animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/></circle>
+            <circle cx="176" cy="564" r="2"><animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/></circle>
+            <circle cx="104" cy="628" r="2"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
+            <circle cx="176" cy="628" r="2"><animate attributeName="opacity" values="0.3;1;0.3" dur="2.4s" repeatCount="indefinite"/></circle>
+          </g>
+          <!-- generator row -->
+          <g fill="#0c1322" stroke="rgba(255,176,102,0.25)">
+            <rect x="76"  y="668" width="128" height="14" rx="2"/>
+            <rect x="76"  y="686" width="128" height="14" rx="2"/>
+            <rect x="76"  y="704" width="128" height="14" rx="2"/>
+            <rect x="76"  y="722" width="128" height="14" rx="2"/>
+          </g>
+          <text x="140" y="746" text-anchor="middle" class="label-text" style="font-size:8px; fill:#ffd9a8;">DIESEL GENSETS · N+1</text>
+        </g>
+
+        <!-- ===== Cooling plant (right side) ===== -->
+        <g class="hot" data-comp="dc-cooling">
+          <rect x="1180" y="180" width="160" height="320" rx="6" fill="#101a2c" stroke="rgba(118,228,255,0.45)"/>
+          <text x="1260" y="204" text-anchor="middle" class="label-text" style="font-size:10px; fill:#76e4ff;">COOLING PLANT</text>
+          <!-- chiller circles -->
+          <g stroke="rgba(118,228,255,0.5)" fill="#0d1422">
+            <circle cx="1216" cy="248" r="22"/>
+            <circle cx="1304" cy="248" r="22"/>
+            <circle cx="1216" cy="316" r="22"/>
+            <circle cx="1304" cy="316" r="22"/>
+          </g>
+          <!-- spinning fans -->
+          <g stroke="#76e4ff" stroke-width="1" fill="none">
+            <g transform="translate(1216 248)"><line x1="-12" y1="0" x2="12" y2="0"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/></line><line x1="0" y1="-12" x2="0" y2="12"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/></line></g>
+            <g transform="translate(1304 248)"><line x1="-12" y1="0" x2="12" y2="0"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.4s" repeatCount="indefinite"/></line><line x1="0" y1="-12" x2="0" y2="12"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.4s" repeatCount="indefinite"/></line></g>
+            <g transform="translate(1216 316)"><line x1="-12" y1="0" x2="12" y2="0"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.2s" repeatCount="indefinite"/></line><line x1="0" y1="-12" x2="0" y2="12"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.2s" repeatCount="indefinite"/></line></g>
+            <g transform="translate(1304 316)"><line x1="-12" y1="0" x2="12" y2="0"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.6s" repeatCount="indefinite"/></line><line x1="0" y1="-12" x2="0" y2="12"><animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.6s" repeatCount="indefinite"/></line></g>
+          </g>
+          <!-- CDU manifold -->
+          <rect x="1196" y="370" width="128" height="42" rx="3" fill="#0c1322" stroke="rgba(118,228,255,0.4)"/>
+          <text x="1260" y="395" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">CDU MANIFOLD</text>
+          <!-- piping out -->
+          <text x="1260" y="448" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(170,220,255,0.7);">FACILITY WATER LOOP</text>
+          <text x="1260" y="468" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(170,220,255,0.5);">32 °C SUPPLY · 45 °C RETURN</text>
+        </g>
+
+        <!-- Cooling pipes from plant to hall -->
+        <g>
+          <line x1="1170" y1="390" x2="1090" y2="390" stroke="#76e4ff" stroke-width="2"/>
+          <line x1="1170" y1="410" x2="1090" y2="410" stroke="#ff5d8f" stroke-width="2"/>
+          <circle cx="1130" cy="390" r="2" fill="#76e4ff"><animate attributeName="cx" from="1170" to="1090" dur="2.5s" repeatCount="indefinite"/></circle>
+          <circle cx="1130" cy="390" r="2" fill="#76e4ff"><animate attributeName="cx" from="1170" to="1090" dur="2.5s" begin="1.2s" repeatCount="indefinite"/></circle>
+          <circle cx="1130" cy="410" r="2" fill="#ff5d8f"><animate attributeName="cx" from="1090" to="1170" dur="2.5s" repeatCount="indefinite"/></circle>
+          <circle cx="1130" cy="410" r="2" fill="#ff5d8f"><animate attributeName="cx" from="1090" to="1170" dur="2.5s" begin="1.5s" repeatCount="indefinite"/></circle>
+        </g>
+
+        <!-- ===== UPS / battery hall ===== -->
+        <g class="hot" data-comp="dc-ups">
+          <rect x="60" y="180" width="160" height="160" rx="6" fill="#101a2c" stroke="rgba(255,93,143,0.4)"/>
+          <text x="140" y="204" text-anchor="middle" class="label-text" style="font-size:10px; fill:#ff5d8f;">UPS · BATTERY HALL</text>
+          <g fill="#1a2236" stroke="rgba(255,93,143,0.3)">
+            <rect x="76"  y="220" width="60" height="40" rx="2"/>
+            <rect x="144" y="220" width="60" height="40" rx="2"/>
+            <rect x="76"  y="268" width="60" height="40" rx="2"/>
+            <rect x="144" y="268" width="60" height="40" rx="2"/>
+          </g>
+          <g fill="#ff5d8f" opacity="0.7">
+            <rect x="86" y="232" width="40" height="3"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite"/></rect>
+            <rect x="154" y="232" width="40" height="3"><animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite"/></rect>
+            <rect x="86" y="280" width="40" height="3"><animate attributeName="opacity" values="0.4;1;0.4" dur="2.2s" repeatCount="indefinite"/></rect>
+            <rect x="154" y="280" width="40" height="3"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.6s" repeatCount="indefinite"/></rect>
+          </g>
+          <text x="140" y="328" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(255,180,200,0.7);">LITHIUM-ION · 5 MIN RIDE-THROUGH</text>
+        </g>
+
+        <!-- ===== Fiber MMR ===== -->
+        <g class="hot" data-comp="dc-fiber">
+          <rect x="60" y="380" width="160" height="100" rx="6" fill="#101a2c" stroke="rgba(180,140,255,0.4)"/>
+          <text x="140" y="404" text-anchor="middle" class="label-text" style="font-size:10px; fill:#b48cff;">MEET-ME ROOM</text>
+          <g stroke="#b48cff" stroke-width="1.2" fill="none">
+            <path d="M 80 430 Q 100 450 140 442 Q 180 434 200 430"><animate attributeName="stroke-dasharray" values="0,200; 60,200; 0,200" dur="3s" repeatCount="indefinite"/></path>
+            <path d="M 80 446 Q 100 462 140 454 Q 180 446 200 446"><animate attributeName="stroke-dasharray" values="0,200; 60,200; 0,200" dur="3s" begin="1s" repeatCount="indefinite"/></path>
+          </g>
+          <text x="140" y="468" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(220,200,255,0.7);">CARRIER &amp; PEERING FIBER</text>
+        </g>
+
+        <!-- ===== Network spine room (top center) ===== -->
+        <g class="hot" data-comp="dc-spine">
+          <rect x="500" y="100" width="400" height="80" rx="6" fill="#101a2c" stroke="rgba(180,140,255,0.5)"/>
+          <text x="700" y="124" text-anchor="middle" class="label-text label-strong" style="font-size:11px; fill:#b48cff;">NETWORK SPINE · INFINIBAND / SPECTRUM-X</text>
+          <g fill="#0c1322" stroke="rgba(180,140,255,0.4)">
+            <rect x="520" y="138" width="50" height="28" rx="2"/>
+            <rect x="576" y="138" width="50" height="28" rx="2"/>
+            <rect x="632" y="138" width="50" height="28" rx="2"/>
+            <rect x="688" y="138" width="50" height="28" rx="2"/>
+            <rect x="744" y="138" width="50" height="28" rx="2"/>
+            <rect x="800" y="138" width="50" height="28" rx="2"/>
+            <rect x="856" y="138" width="24" height="28" rx="2"/>
+          </g>
+          <g fill="#b48cff">
+            <circle cx="528" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite"/></circle>
+            <circle cx="584" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.6s" repeatCount="indefinite"/></circle>
+            <circle cx="640" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/></circle>
+            <circle cx="696" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
+            <circle cx="752" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/></circle>
+            <circle cx="808" cy="152" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.7s" repeatCount="indefinite"/></circle>
+          </g>
+        </g>
+
+        <!-- spine cables to AI hall -->
+        <g opacity="0.55">
+          <line x1="600" y1="180" x2="540" y2="220" stroke="#b48cff" stroke-width="1.2" stroke-dasharray="4 5">
+            <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite"/>
+          </line>
+          <line x1="700" y1="180" x2="700" y2="220" stroke="#b48cff" stroke-width="1.2" stroke-dasharray="4 5">
+            <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" begin="0.3s" repeatCount="indefinite"/>
+          </line>
+          <line x1="800" y1="180" x2="860" y2="220" stroke="#b48cff" stroke-width="1.2" stroke-dasharray="4 5">
+            <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" begin="0.6s" repeatCount="indefinite"/>
+          </line>
+        </g>
+
+        <!-- ===== Data Hall (white-space) ===== -->
+        <rect x="260" y="220" width="800" height="540" rx="10" fill="url(#hallFloor)" stroke="rgba(118,228,255,0.22)" stroke-width="1.5"/>
+        <text x="280" y="244" class="label-text" style="font-size:10px; fill:rgba(118,228,255,0.55);">DATA HALL · WHITE SPACE</text>
+        <text x="1040" y="244" text-anchor="end" class="label-text" style="font-size:9px; fill:rgba(118,228,255,0.4);">PUE 1.10 · TIER III+</text>
+
+        <!-- ===== AI TRAINING POD (highlighted, the drill target) ===== -->
+        <g class="hot" data-comp="dc-aipod">
+          <!-- pod glow -->
+          <rect x="276" y="262" width="768" height="180" rx="8" fill="url(#aiPodGlow)"/>
+          <rect x="276" y="262" width="768" height="180" rx="8" fill="none" stroke="#76e4ff" stroke-width="1.5">
+            <animate attributeName="stroke-opacity" values="0.5;1;0.5" dur="2.4s" repeatCount="indefinite"/>
+          </rect>
+          <text x="294" y="280" class="label-text label-strong" style="font-size:11px; fill:#76e4ff;">★ AI TRAINING POD · NVL72 ROW · CLICK TO ZOOM TO RACK</text>
+
+          <!-- 2 rows of 12 racks -->
+          <g>
+            <!-- Row A -->
+            <g>
+              <rect x="296"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="346"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="396"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="446"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="496"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="546"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="596"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="646"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="696"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="746"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="796"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="846"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="896"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="946"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="996"  y="296" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+            </g>
+            <!-- hot aisle (between rows) -->
+            <rect x="296" y="354" width="744" height="14" fill="rgba(255,93,143,0.08)" stroke="rgba(255,93,143,0.25)" stroke-dasharray="2 4"/>
+            <text x="668" y="365" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(255,140,170,0.7);">⇡ HOT AISLE CONTAINMENT ⇡</text>
+            <!-- Row B (mirror) -->
+            <g>
+              <rect x="296"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="346"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="396"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="446"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="496"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="546"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="596"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="646"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="696"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="746"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="796"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="846"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="896"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="946"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+              <rect x="996"  y="374" width="44" height="52" rx="3" fill="url(#rackTileHot)" stroke="rgba(118,228,255,0.6)"/>
+            </g>
+          </g>
+          <!-- pod LEDs -->
+          <g fill="#76e4ff">
+            <circle cx="318" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite"/></circle>
+            <circle cx="368" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.6s" repeatCount="indefinite"/></circle>
+            <circle cx="418" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/></circle>
+            <circle cx="468" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
+            <circle cx="518" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite"/></circle>
+            <circle cx="568" cy="304" r="1.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.7s" repeatCount="indefinite"/></circle>
+          </g>
+          <text x="660" y="408" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(255,255,255,0.4);">↓ ZOOM INTO A SINGLE RACK ↓</text>
+        </g>
+
+        <!-- ===== General compute pods (lower rows, dimmer) ===== -->
+        <g class="hot" data-comp="dc-genpod">
+          <rect x="276" y="470" width="378" height="270" rx="6" fill="rgba(255,255,255,0.015)" stroke="rgba(118,228,255,0.15)"/>
+          <text x="288" y="488" class="label-text" style="font-size:9px; fill:rgba(118,228,255,0.5);">GENERAL COMPUTE / INFERENCE POD</text>
+          <!-- 3 rows of small racks -->
+          <g>
+            <g fill="url(#rackTile)" stroke="rgba(118,228,255,0.2)">
+              <rect x="294"  y="500" width="38" height="36" rx="2"/>
+              <rect x="338"  y="500" width="38" height="36" rx="2"/>
+              <rect x="382"  y="500" width="38" height="36" rx="2"/>
+              <rect x="426"  y="500" width="38" height="36" rx="2"/>
+              <rect x="470"  y="500" width="38" height="36" rx="2"/>
+              <rect x="514"  y="500" width="38" height="36" rx="2"/>
+              <rect x="558"  y="500" width="38" height="36" rx="2"/>
+              <rect x="602"  y="500" width="38" height="36" rx="2"/>
+            </g>
+            <g fill="url(#rackTile)" stroke="rgba(118,228,255,0.2)">
+              <rect x="294"  y="556" width="38" height="36" rx="2"/>
+              <rect x="338"  y="556" width="38" height="36" rx="2"/>
+              <rect x="382"  y="556" width="38" height="36" rx="2"/>
+              <rect x="426"  y="556" width="38" height="36" rx="2"/>
+              <rect x="470"  y="556" width="38" height="36" rx="2"/>
+              <rect x="514"  y="556" width="38" height="36" rx="2"/>
+              <rect x="558"  y="556" width="38" height="36" rx="2"/>
+              <rect x="602"  y="556" width="38" height="36" rx="2"/>
+            </g>
+            <g fill="url(#rackTile)" stroke="rgba(118,228,255,0.2)">
+              <rect x="294"  y="612" width="38" height="36" rx="2"/>
+              <rect x="338"  y="612" width="38" height="36" rx="2"/>
+              <rect x="382"  y="612" width="38" height="36" rx="2"/>
+              <rect x="426"  y="612" width="38" height="36" rx="2"/>
+              <rect x="470"  y="612" width="38" height="36" rx="2"/>
+              <rect x="514"  y="612" width="38" height="36" rx="2"/>
+              <rect x="558"  y="612" width="38" height="36" rx="2"/>
+              <rect x="602"  y="612" width="38" height="36" rx="2"/>
+            </g>
+            <g fill="url(#rackTile)" stroke="rgba(118,228,255,0.2)">
+              <rect x="294"  y="668" width="38" height="36" rx="2"/>
+              <rect x="338"  y="668" width="38" height="36" rx="2"/>
+              <rect x="382"  y="668" width="38" height="36" rx="2"/>
+              <rect x="426"  y="668" width="38" height="36" rx="2"/>
+              <rect x="470"  y="668" width="38" height="36" rx="2"/>
+              <rect x="514"  y="668" width="38" height="36" rx="2"/>
+              <rect x="558"  y="668" width="38" height="36" rx="2"/>
+              <rect x="602"  y="668" width="38" height="36" rx="2"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- ===== Storage pod ===== -->
+        <g class="hot" data-comp="dc-storage">
+          <rect x="676" y="470" width="368" height="270" rx="6" fill="rgba(255,255,255,0.015)" stroke="rgba(255,176,102,0.18)"/>
+          <text x="688" y="488" class="label-text" style="font-size:9px; fill:rgba(255,176,102,0.55);">PARALLEL FILESYSTEM POD · DATA LAKE</text>
+          <g fill="url(#rackTile)" stroke="rgba(255,176,102,0.25)">
+            <rect x="694"  y="500" width="48" height="50" rx="2"/>
+            <rect x="748"  y="500" width="48" height="50" rx="2"/>
+            <rect x="802"  y="500" width="48" height="50" rx="2"/>
+            <rect x="856"  y="500" width="48" height="50" rx="2"/>
+            <rect x="910"  y="500" width="48" height="50" rx="2"/>
+            <rect x="964"  y="500" width="48" height="50" rx="2"/>
+            <rect x="694"  y="558" width="48" height="50" rx="2"/>
+            <rect x="748"  y="558" width="48" height="50" rx="2"/>
+            <rect x="802"  y="558" width="48" height="50" rx="2"/>
+            <rect x="856"  y="558" width="48" height="50" rx="2"/>
+            <rect x="910"  y="558" width="48" height="50" rx="2"/>
+            <rect x="964"  y="558" width="48" height="50" rx="2"/>
+            <rect x="694"  y="616" width="48" height="50" rx="2"/>
+            <rect x="748"  y="616" width="48" height="50" rx="2"/>
+            <rect x="802"  y="616" width="48" height="50" rx="2"/>
+            <rect x="856"  y="616" width="48" height="50" rx="2"/>
+            <rect x="910"  y="616" width="48" height="50" rx="2"/>
+            <rect x="964"  y="616" width="48" height="50" rx="2"/>
+          </g>
+          <g fill="#ffb066">
+            <circle cx="700" cy="510" r="1.4"><animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite"/></circle>
+            <circle cx="754" cy="510" r="1.4"><animate attributeName="opacity" values="0.3;1;0.3" dur="2.4s" repeatCount="indefinite"/></circle>
+            <circle cx="808" cy="510" r="1.4"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
+            <circle cx="862" cy="510" r="1.4"><animate attributeName="opacity" values="0.3;1;0.3" dur="2.2s" repeatCount="indefinite"/></circle>
+          </g>
+        </g>
+
+        <!-- ===== BMS / NOC ===== -->
+        <g class="hot" data-comp="dc-bms">
+          <rect x="1180" y="540" width="160" height="100" rx="6" fill="#101a2c" stroke="rgba(118,228,255,0.3)"/>
+          <text x="1260" y="564" text-anchor="middle" class="label-text" style="font-size:10px; fill:#76e4ff;">BMS · DCIM</text>
+          <g stroke="rgba(118,228,255,0.4)" fill="none">
+            <rect x="1196" y="578" width="128" height="24" rx="2"/>
+          </g>
+          <g fill="#76e4ff" opacity="0.7">
+            <rect x="1204" y="586" width="20" height="3"/>
+            <rect x="1230" y="586" width="14" height="3"/>
+            <rect x="1252" y="586" width="22" height="3"/>
+            <rect x="1280" y="586" width="10" height="3"/>
+            <rect x="1294" y="586" width="22" height="3"/>
+            <rect x="1204" y="592" width="14" height="3"/>
+            <rect x="1224" y="592" width="22" height="3"/>
+            <rect x="1252" y="592" width="14" height="3"/>
+            <rect x="1272" y="592" width="22" height="3"/>
+            <rect x="1300" y="592" width="14" height="3"/>
+          </g>
+          <text x="1260" y="624" text-anchor="middle" class="label-text" style="font-size:8px; fill:rgba(170,220,255,0.6);">REAL-TIME TELEMETRY</text>
+        </g>
+
+        <!-- ===== Site shell label ===== -->
+        <g class="hot" data-comp="dc-shell">
+          <text x="62" y="850" class="label-text" style="font-size:10px; fill:rgba(118,228,255,0.5);">SITE · 50 ACRES · DRY-COOLING CLIMATE</text>
+          <text x="1338" y="850" text-anchor="end" class="label-text" style="font-size:10px; fill:rgba(118,228,255,0.5);">CAPEX · ~$4 BN · 18 MONTHS BUILD</text>
+        </g>
+
+        <!-- Power line connecting substation to UPS to hall -->
+        <g opacity="0.6">
+          <line x1="220" y1="500" x2="260" y2="500" stroke="#ffb066" stroke-width="1.5"/>
+          <line x1="220" y1="260" x2="260" y2="320" stroke="#ff5d8f" stroke-width="1.2" stroke-dasharray="3 3"/>
+        </g>
+
+        <!-- Hint footer -->
+        <text x="700" y="858" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(255,255,255,0.4);">CLICK ★ AI TRAINING POD TO ZOOM INTO A SINGLE RACK</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================= LEVEL 1 — RACK ================= -->
+  <section class="scene" id="scene-rack">
+    <div class="viewport">
+      <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="rackBody" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#1a2138"/>
+            <stop offset="1" stop-color="#0a0f1c"/>
+          </linearGradient>
+          <linearGradient id="serverChassis" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#26314a"/>
+            <stop offset="0.5" stop-color="#1a2236"/>
+            <stop offset="1" stop-color="#10172a"/>
+          </linearGradient>
+          <linearGradient id="serverFront" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#2c3a58"/>
+            <stop offset="1" stop-color="#1a2238"/>
+          </linearGradient>
+          <linearGradient id="floorGlow" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="rgba(118,228,255,0.18)"/>
+            <stop offset="1" stop-color="rgba(118,228,255,0)"/>
+          </linearGradient>
+          <radialGradient id="rackHalo" cx="0.5" cy="0.5">
+            <stop offset="0" stop-color="rgba(118,228,255,0.25)"/>
+            <stop offset="1" stop-color="rgba(118,228,255,0)"/>
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- Floor reflection -->
+        <ellipse cx="700" cy="830" rx="360" ry="24" fill="url(#floorGlow)" />
+
+        <!-- Ambient halo behind rack -->
+        <ellipse cx="700" cy="450" rx="500" ry="380" fill="url(#rackHalo)" />
+
+        <!-- Datacenter context lines -->
+        <g stroke="rgba(118,228,255,0.05)" stroke-width="1">
+          <line x1="0" y1="780" x2="1400" y2="780"/>
+          <line x1="0" y1="800" x2="1400" y2="800"/>
+          <line x1="200" y1="100" x2="200" y2="800" stroke-dasharray="2 8"/>
+          <line x1="1200" y1="100" x2="1200" y2="800" stroke-dasharray="2 8"/>
+        </g>
+
+        <!-- Neighboring racks (silhouettes) -->
+        <rect x="60" y="160" width="160" height="640" rx="8" fill="#0a1020" stroke="rgba(118,228,255,0.06)"/>
+        <rect x="1180" y="160" width="160" height="640" rx="8" fill="#0a1020" stroke="rgba(118,228,255,0.06)"/>
+        <g opacity="0.3">
+          <circle cx="140" cy="200" r="2" fill="#76e4ff"><animate attributeName="opacity" values="0.2;1;0.2" dur="2s" repeatCount="indefinite"/></circle>
+          <circle cx="160" cy="220" r="2" fill="#b48cff"><animate attributeName="opacity" values="0.3;1;0.3" dur="2.6s" repeatCount="indefinite"/></circle>
+          <circle cx="1260" cy="240" r="2" fill="#76e4ff"><animate attributeName="opacity" values="0.2;1;0.2" dur="2.4s" repeatCount="indefinite"/></circle>
+        </g>
+
+        <!-- Main rack chassis -->
+        <rect x="420" y="100" width="560" height="720" rx="14" fill="url(#rackBody)" stroke="rgba(118,228,255,0.18)" stroke-width="1.5"/>
+
+        <!-- Rack top label -->
+        <rect x="440" y="118" width="520" height="42" rx="6" fill="#0d1424" stroke="rgba(118,228,255,0.1)"/>
+        <text x="700" y="145" text-anchor="middle" class="label-text label-strong" style="font-size:13px; letter-spacing:0.25em;">RACK · NVL72-CLASS · 120 kW</text>
+
+        <!-- Rack inner mount rails -->
+        <line x1="438" y1="170" x2="438" y2="780" stroke="rgba(118,228,255,0.15)"/>
+        <line x1="962" y1="170" x2="962" y2="780" stroke="rgba(118,228,255,0.15)"/>
+
+        <!-- Slot 1: NETWORK SWITCH -->
+        <g class="hot" data-comp="rk-switch">
+          <rect x="440" y="178" width="520" height="60" rx="5" fill="url(#serverFront)" stroke="rgba(118,228,255,0.25)"/>
+          <rect x="450" y="186" width="500" height="44" rx="3" fill="#0c1322"/>
+          <!-- ports -->
+          <g fill="#1d2a44" stroke="rgba(118,228,255,0.3)" stroke-width="0.5">
+            <rect x="460" y="195" width="14" height="9" rx="1"/><rect x="478" y="195" width="14" height="9" rx="1"/>
+            <rect x="496" y="195" width="14" height="9" rx="1"/><rect x="514" y="195" width="14" height="9" rx="1"/>
+            <rect x="532" y="195" width="14" height="9" rx="1"/><rect x="550" y="195" width="14" height="9" rx="1"/>
+            <rect x="568" y="195" width="14" height="9" rx="1"/><rect x="586" y="195" width="14" height="9" rx="1"/>
+            <rect x="604" y="195" width="14" height="9" rx="1"/><rect x="622" y="195" width="14" height="9" rx="1"/>
+            <rect x="640" y="195" width="14" height="9" rx="1"/><rect x="658" y="195" width="14" height="9" rx="1"/>
+            <rect x="676" y="195" width="14" height="9" rx="1"/><rect x="694" y="195" width="14" height="9" rx="1"/>
+            <rect x="712" y="195" width="14" height="9" rx="1"/><rect x="730" y="195" width="14" height="9" rx="1"/>
+            <rect x="748" y="195" width="14" height="9" rx="1"/><rect x="766" y="195" width="14" height="9" rx="1"/>
+            <rect x="784" y="195" width="14" height="9" rx="1"/><rect x="802" y="195" width="14" height="9" rx="1"/>
+            <rect x="820" y="195" width="14" height="9" rx="1"/><rect x="838" y="195" width="14" height="9" rx="1"/>
+            <rect x="856" y="195" width="14" height="9" rx="1"/><rect x="874" y="195" width="14" height="9" rx="1"/>
+            <rect x="892" y="195" width="14" height="9" rx="1"/><rect x="910" y="195" width="14" height="9" rx="1"/>
+            <rect x="928" y="195" width="14" height="9" rx="1"/>
+          </g>
+          <!-- LEDs -->
+          <circle cx="468" cy="219" r="2" fill="#76e4ff" filter="url(#glow)"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite"/></circle>
+          <circle cx="486" cy="219" r="2" fill="#76e4ff" filter="url(#glow)"><animate attributeName="opacity" values="0.5;1;0.5" dur="1.8s" repeatCount="indefinite"/></circle>
+          <circle cx="504" cy="219" r="2" fill="#b48cff" filter="url(#glow)"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.2s" repeatCount="indefinite"/></circle>
+          <text x="940" y="222" text-anchor="end" class="label-text" style="font-size:9px; fill:#76e4ff;">QUANTUM-2 800G ×64</text>
+        </g>
+
+        <!-- GPU Servers (8 trays) -->
+        <g id="gpu-servers">
+          <!-- helper repeated by JS would be better, but inline for SSR fidelity -->
+        </g>
+
+        <!-- (will inject GPU server rows via JS to avoid 200 lines of repetition) -->
+
+        <!-- Slot bottom: PSUs -->
+        <g class="hot" data-comp="rk-psu">
+          <rect x="440" y="700" width="520" height="74" rx="5" fill="url(#serverFront)" stroke="rgba(255,176,102,0.25)"/>
+          <g>
+            <rect x="450" y="708" width="120" height="58" rx="3" fill="#0c1322" stroke="rgba(255,176,102,0.2)"/>
+            <rect x="576" y="708" width="120" height="58" rx="3" fill="#0c1322" stroke="rgba(255,176,102,0.2)"/>
+            <rect x="702" y="708" width="120" height="58" rx="3" fill="#0c1322" stroke="rgba(255,176,102,0.2)"/>
+            <rect x="828" y="708" width="120" height="58" rx="3" fill="#0c1322" stroke="rgba(255,176,102,0.2)"/>
+          </g>
+          <!-- Ventilation grilles -->
+          <g stroke="rgba(255,176,102,0.4)" stroke-width="0.5" fill="none">
+            <circle cx="510" cy="737" r="22"/><circle cx="636" cy="737" r="22"/>
+            <circle cx="762" cy="737" r="22"/><circle cx="888" cy="737" r="22"/>
+          </g>
+          <g fill="#ffb066" opacity="0.4">
+            <circle cx="510" cy="737" r="3"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="2s" repeatCount="indefinite"/></circle>
+            <circle cx="636" cy="737" r="3"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="2.4s" repeatCount="indefinite"/></circle>
+            <circle cx="762" cy="737" r="3"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
+            <circle cx="888" cy="737" r="3"><animate attributeName="opacity" values="0.5;1;0.5" dur="2.2s" repeatCount="indefinite"/></circle>
+          </g>
+          <text x="700" y="790" text-anchor="middle" class="label-text" style="fill:#ffb066;">REDUNDANT POWER · 4 × 33 kW · 415V</text>
+        </g>
+
+        <!-- Side cooling manifolds -->
+        <g class="hot" data-comp="rk-cooling">
+          <rect x="396" y="178" width="22" height="596" rx="4" fill="#0e1828" stroke="rgba(118,228,255,0.25)"/>
+          <rect x="982" y="178" width="22" height="596" rx="4" fill="#0e1828" stroke="rgba(118,228,255,0.25)"/>
+          <!-- supply / return labels -->
+          <text x="407" y="170" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">CDU↑</text>
+          <text x="993" y="170" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ff5d8f;">RET↓</text>
+          <!-- coolant flow indicators -->
+          <g>
+            <circle cx="407" cy="200" r="2" fill="#76e4ff"><animate attributeName="cy" from="200" to="770" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="3s" repeatCount="indefinite"/></circle>
+            <circle cx="407" cy="200" r="2" fill="#76e4ff"><animate attributeName="cy" from="200" to="770" dur="3s" begin="1s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="1s" repeatCount="indefinite"/></circle>
+            <circle cx="407" cy="200" r="2" fill="#76e4ff"><animate attributeName="cy" from="200" to="770" dur="3s" begin="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="2s" repeatCount="indefinite"/></circle>
+            <circle cx="993" cy="770" r="2" fill="#ff5d8f"><animate attributeName="cy" from="770" to="200" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="3s" repeatCount="indefinite"/></circle>
+            <circle cx="993" cy="770" r="2" fill="#ff5d8f"><animate attributeName="cy" from="770" to="200" dur="3s" begin="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="3s" begin="1.5s" repeatCount="indefinite"/></circle>
+          </g>
+        </g>
+
+        <!-- NVLink spine indicator -->
+        <g class="hot" data-comp="rk-nvlink" opacity="0.95">
+          <rect x="970" y="270" width="14" height="380" rx="3" fill="#0d1422" stroke="rgba(180,140,255,0.5)"/>
+          <line x1="977" y1="280" x2="977" y2="640" stroke="#b48cff" stroke-width="2" stroke-dasharray="4 4">
+            <animate attributeName="stroke-dashoffset" from="0" to="-40" dur="1.2s" repeatCount="indefinite"/>
+          </line>
+          <text x="1010" y="460" class="label-text" style="fill:#b48cff;" transform="rotate(90 1010 460)">NVLINK SWITCH SPINE · 1.8 TB/s/GPU</text>
+        </g>
+
+        <!-- Storage row -->
+        <g class="hot" data-comp="rk-storage">
+          <rect x="440" y="638" width="520" height="50" rx="5" fill="url(#serverFront)" stroke="rgba(118,228,255,0.18)"/>
+          <g fill="#0c1322" stroke="rgba(118,228,255,0.15)">
+            <rect x="450" y="646" width="50" height="34" rx="2"/>
+            <rect x="504" y="646" width="50" height="34" rx="2"/>
+            <rect x="558" y="646" width="50" height="34" rx="2"/>
+            <rect x="612" y="646" width="50" height="34" rx="2"/>
+            <rect x="666" y="646" width="50" height="34" rx="2"/>
+            <rect x="720" y="646" width="50" height="34" rx="2"/>
+            <rect x="774" y="646" width="50" height="34" rx="2"/>
+            <rect x="828" y="646" width="50" height="34" rx="2"/>
+            <rect x="882" y="646" width="68" height="34" rx="2"/>
+          </g>
+          <text x="700" y="700" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">NVMe FLASH · 8 × 30.72 TB</text>
+        </g>
+
+        <!-- Rack management micro-controller bezel -->
+        <g class="hot" data-comp="rk-mgmt">
+          <rect x="440" y="160" width="520" height="14" rx="2" fill="#0a1020" stroke="rgba(118,228,255,0.1)"/>
+          <circle cx="453" cy="167" r="2" fill="#76e4ff"><animate attributeName="opacity" values="0.4;1;0.4" dur="1.6s" repeatCount="indefinite"/></circle>
+          <circle cx="463" cy="167" r="2" fill="#ffb066" opacity="0.6"/>
+          <text x="940" y="170" text-anchor="end" class="label-text" style="font-size:8px;">BMC · TELEMETRY</text>
+        </g>
+
+        <!-- Onlooker labels -->
+        <g class="label-text" fill="#5b6987" style="font-size:11px;">
+          <text x="46" y="100">DC ROW · A07</text>
+          <text x="1354" y="100" text-anchor="end">AISLE · COLD</text>
+          <text x="46" y="855">FLOOR PLENUM · 18°C</text>
+          <text x="1354" y="855" text-anchor="end">CDU · 32°C / 25°C</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================= LEVEL 2 — SERVER ================= -->
+  <section class="scene" id="scene-server">
+    <div class="viewport">
+      <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="boardPCB" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#0a4030"/>
+            <stop offset="1" stop-color="#06281e"/>
+          </linearGradient>
+          <pattern id="pcbTraces" width="40" height="40" patternUnits="userSpaceOnUse">
+            <rect width="40" height="40" fill="url(#boardPCB)"/>
+            <path d="M0 20 L40 20 M20 0 L20 40 M5 5 L15 5 L15 15 M25 25 L35 25 L35 35" stroke="rgba(118,228,255,0.07)" stroke-width="0.6" fill="none"/>
+            <circle cx="10" cy="30" r="0.8" fill="rgba(255,176,102,0.5)"/>
+            <circle cx="30" cy="10" r="0.8" fill="rgba(255,176,102,0.4)"/>
+          </pattern>
+          <linearGradient id="hbmStack" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#3b2d6f"/>
+            <stop offset="1" stop-color="#1f1645"/>
+          </linearGradient>
+          <linearGradient id="gpuPkg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#1f2a45"/>
+            <stop offset="1" stop-color="#0d1428"/>
+          </linearGradient>
+          <linearGradient id="cpuPkg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#3a2540"/>
+            <stop offset="1" stop-color="#1d1023"/>
+          </linearGradient>
+          <linearGradient id="dimmStick" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#1c2540"/>
+            <stop offset="1" stop-color="#0c1326"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Server tray frame -->
+        <rect x="100" y="120" width="1200" height="660" rx="14" fill="#0a1120" stroke="rgba(118,228,255,0.18)" stroke-width="1.5"/>
+        <text x="120" y="148" class="label-text label-strong" style="font-size:13px; letter-spacing:0.18em;">SERVER NODE · GB200 / HGX-CLASS · TOP VIEW (EXPLODED)</text>
+        <text x="1280" y="148" text-anchor="end" class="label-text" style="fill:#76e4ff;">↩ BACK TO RACK</text>
+
+        <!-- Motherboard PCB -->
+        <g class="hot" data-comp="sv-board">
+          <rect x="140" y="180" width="1120" height="560" rx="10" fill="url(#pcbTraces)" stroke="rgba(118,228,255,0.2)"/>
+          <text x="160" y="210" class="label-text" style="fill:rgba(255,255,255,0.45)">MOTHERBOARD · OAM/UBB COMPLIANT</text>
+        </g>
+
+        <!-- 8x GPU packages -->
+        <g id="gpu-packages">
+          <!-- pkg helper -->
+          <!-- Row 1 -->
+          <g class="hot" data-comp="sv-gpu" data-idx="0">
+            <rect x="200" y="240" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="220" y="260" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <!-- Die in middle -->
+            <rect x="270" y="310" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <!-- HBM stacks -->
+            <rect x="232" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="346" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="232" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="346" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="300" y="425" text-anchor="middle" class="label-text label-strong">GPU 0</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="1">
+            <rect x="420" y="240" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="440" y="260" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="490" y="310" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="452" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="566" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="452" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="566" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="520" y="425" text-anchor="middle" class="label-text label-strong">GPU 1</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="2">
+            <rect x="780" y="240" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="800" y="260" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="850" y="310" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="812" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="926" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="812" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="926" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="880" y="425" text-anchor="middle" class="label-text label-strong">GPU 2</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="3">
+            <rect x="1000" y="240" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="1020" y="260" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="1070" y="310" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="1032" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1146" y="278" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1032" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1146" y="358" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="1100" y="425" text-anchor="middle" class="label-text label-strong">GPU 3</text>
+          </g>
+
+          <!-- Row 2: only show 4 GPUs to keep clarity (placeholder for 8) -->
+          <g class="hot" data-comp="sv-gpu" data-idx="4">
+            <rect x="200" y="500" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="220" y="520" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="270" y="570" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="232" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="346" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="232" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="346" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="300" y="685" text-anchor="middle" class="label-text label-strong">GPU 4</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="5">
+            <rect x="420" y="500" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="440" y="520" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="490" y="570" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="452" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="566" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="452" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="566" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="520" y="685" text-anchor="middle" class="label-text label-strong">GPU 5</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="6">
+            <rect x="780" y="500" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="800" y="520" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="850" y="570" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="812" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="926" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="812" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="926" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="880" y="685" text-anchor="middle" class="label-text label-strong">GPU 6</text>
+          </g>
+          <g class="hot" data-comp="sv-gpu" data-idx="7">
+            <rect x="1000" y="500" width="200" height="200" rx="8" fill="url(#gpuPkg)" stroke="rgba(118,228,255,0.45)" stroke-width="1.5"/>
+            <rect x="1020" y="520" width="160" height="160" rx="3" fill="#1a2a4a"/>
+            <rect x="1070" y="570" width="60" height="60" fill="#3a4d80" stroke="#76e4ff"/>
+            <rect x="1032" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1146" y="538" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1032" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <rect x="1146" y="618" width="22" height="44" fill="url(#hbmStack)" stroke="rgba(180,140,255,0.6)"/>
+            <text x="1100" y="685" text-anchor="middle" class="label-text label-strong">GPU 7</text>
+          </g>
+        </g>
+
+        <!-- CPU package between GPU columns -->
+        <g class="hot" data-comp="sv-cpu">
+          <rect x="650" y="280" width="110" height="320" rx="6" fill="url(#cpuPkg)" stroke="rgba(255,93,143,0.45)" stroke-width="1.5"/>
+          <rect x="660" y="290" width="90" height="160" rx="3" fill="#2a1830"/>
+          <text x="705" y="380" text-anchor="middle" class="label-text label-strong" style="fill:#ff5d8f;">CPU</text>
+          <text x="705" y="397" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ff8fb0;">GRACE / EPYC</text>
+          <!-- DIMM slots beneath -->
+          <g fill="url(#dimmStick)" stroke="rgba(118,228,255,0.4)">
+            <rect x="660" y="464" width="90" height="10" rx="1"/>
+            <rect x="660" y="478" width="90" height="10" rx="1"/>
+            <rect x="660" y="492" width="90" height="10" rx="1"/>
+            <rect x="660" y="506" width="90" height="10" rx="1"/>
+            <rect x="660" y="520" width="90" height="10" rx="1"/>
+            <rect x="660" y="534" width="90" height="10" rx="1"/>
+            <rect x="660" y="548" width="90" height="10" rx="1"/>
+            <rect x="660" y="562" width="90" height="10" rx="1"/>
+            <rect x="660" y="576" width="90" height="10" rx="1"/>
+            <rect x="660" y="590" width="90" height="10" rx="1"/>
+          </g>
+        </g>
+
+        <!-- NIC card on right edge -->
+        <g class="hot" data-comp="sv-nic">
+          <rect x="1218" y="240" width="32" height="200" rx="3" fill="#1a2240" stroke="rgba(118,228,255,0.45)"/>
+          <rect x="1224" y="250" width="20" height="20" fill="#26314a"/>
+          <text x="1234" y="346" class="label-text" transform="rotate(90 1234 346)" style="fill:#76e4ff;">CONNECTX-7 NIC</text>
+        </g>
+        <g class="hot" data-comp="sv-nic">
+          <rect x="1218" y="500" width="32" height="200" rx="3" fill="#1a2240" stroke="rgba(118,228,255,0.45)"/>
+          <rect x="1224" y="510" width="20" height="20" fill="#26314a"/>
+          <text x="1234" y="606" class="label-text" transform="rotate(90 1234 606)" style="fill:#76e4ff;">CONNECTX-7 NIC</text>
+        </g>
+
+        <!-- VRMs near GPUs (decorative) -->
+        <g fill="#1a1f30" stroke="rgba(255,176,102,0.4)">
+          <rect x="200" y="450" width="200" height="38" rx="3"/>
+          <rect x="420" y="450" width="200" height="38" rx="3"/>
+          <rect x="780" y="450" width="200" height="38" rx="3"/>
+          <rect x="1000" y="450" width="200" height="38" rx="3"/>
+          <text x="300" y="473" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">VRM ARRAY · 1000 A</text>
+          <text x="520" y="473" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">VRM ARRAY · 1000 A</text>
+          <text x="880" y="473" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">VRM ARRAY · 1000 A</text>
+          <text x="1100" y="473" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">VRM ARRAY · 1000 A</text>
+        </g>
+
+        <!-- NVLink bus highlight crossing the board -->
+        <g opacity="0.55">
+          <line x1="400" y1="340" x2="420" y2="340" stroke="#b48cff" stroke-width="3"/>
+          <line x1="620" y1="340" x2="780" y2="340" stroke="#b48cff" stroke-width="3" stroke-dasharray="6 6">
+            <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="1s" repeatCount="indefinite"/>
+          </line>
+          <line x1="980" y1="340" x2="1000" y2="340" stroke="#b48cff" stroke-width="3"/>
+          <line x1="400" y1="600" x2="420" y2="600" stroke="#b48cff" stroke-width="3"/>
+          <line x1="620" y1="600" x2="780" y2="600" stroke="#b48cff" stroke-width="3" stroke-dasharray="6 6">
+            <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="1.2s" repeatCount="indefinite"/>
+          </line>
+          <line x1="980" y1="600" x2="1000" y2="600" stroke="#b48cff" stroke-width="3"/>
+        </g>
+        <text x="700" y="332" text-anchor="middle" class="label-text" style="fill:#b48cff; font-size:9px;">NVLINK 1.8 TB/s</text>
+
+        <!-- Cooling cold plates (hot zones) -->
+        <g class="hot" data-comp="sv-cooling" opacity="0.8">
+          <rect x="180" y="220" width="240" height="240" rx="10" fill="none" stroke="rgba(118,228,255,0.25)" stroke-dasharray="4 4"/>
+          <rect x="400" y="220" width="240" height="240" rx="10" fill="none" stroke="rgba(118,228,255,0.25)" stroke-dasharray="4 4"/>
+          <rect x="760" y="220" width="240" height="240" rx="10" fill="none" stroke="rgba(118,228,255,0.25)" stroke-dasharray="4 4"/>
+          <rect x="980" y="220" width="240" height="240" rx="10" fill="none" stroke="rgba(118,228,255,0.25)" stroke-dasharray="4 4"/>
+          <text x="700" y="478" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">⌖ COLD-PLATE LIQUID COOLING ZONE</text>
+        </g>
+
+        <!-- SSDs strip -->
+        <g class="hot" data-comp="sv-ssd">
+          <g fill="#0e1828" stroke="rgba(118,228,255,0.3)">
+            <rect x="180" y="730" width="60" height="38" rx="2"/>
+            <rect x="248" y="730" width="60" height="38" rx="2"/>
+            <rect x="316" y="730" width="60" height="38" rx="2"/>
+            <rect x="384" y="730" width="60" height="38" rx="2"/>
+          </g>
+          <text x="312" y="725" class="label-text" style="font-size:9px; fill:#76e4ff;">NVMe E1.S BOOT/SCRATCH</text>
+        </g>
+
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================= LEVEL 3 — GPU PACKAGE ================= -->
+  <section class="scene" id="scene-chip">
+    <div class="viewport">
+      <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="substrateGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#5a4923"/>
+            <stop offset="1" stop-color="#3a2e15"/>
+          </linearGradient>
+          <linearGradient id="interposerGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#a39172"/>
+            <stop offset="1" stop-color="#5e533e"/>
+          </linearGradient>
+          <linearGradient id="dieGrad" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#4a6db8"/>
+            <stop offset="1" stop-color="#1f2c52"/>
+          </linearGradient>
+          <linearGradient id="hbmGrad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="#7058c8"/>
+            <stop offset="0.5" stop-color="#4a35a0"/>
+            <stop offset="1" stop-color="#251a5f"/>
+          </linearGradient>
+          <pattern id="diePattern" width="14" height="14" patternUnits="userSpaceOnUse">
+            <rect width="14" height="14" fill="url(#dieGrad)"/>
+            <rect x="1" y="1" width="5" height="5" fill="rgba(118,228,255,0.18)"/>
+            <rect x="8" y="1" width="5" height="5" fill="rgba(180,140,255,0.18)"/>
+            <rect x="1" y="8" width="5" height="5" fill="rgba(180,140,255,0.16)"/>
+            <rect x="8" y="8" width="5" height="5" fill="rgba(118,228,255,0.16)"/>
+          </pattern>
+          <radialGradient id="dieGlow" cx="0.5" cy="0.5">
+            <stop offset="0" stop-color="rgba(118,228,255,0.6)"/>
+            <stop offset="1" stop-color="rgba(118,228,255,0)"/>
+          </radialGradient>
+        </defs>
+
+        <text x="120" y="68" class="label-text label-strong" style="font-size:13px; letter-spacing:0.18em;">GPU PACKAGE · BLACKWELL B200 · 2-RETICLE DUAL-DIE · TSMC 4NP</text>
+        <text x="1280" y="68" text-anchor="end" class="label-text" style="fill:#76e4ff;">↩ BACK TO SERVER</text>
+
+        <!-- Glow halo behind package -->
+        <ellipse cx="700" cy="500" rx="540" ry="320" fill="url(#dieGlow)" opacity="0.5"/>
+
+        <!-- Substrate -->
+        <g class="hot" data-comp="ch-substrate">
+          <rect x="180" y="190" width="1040" height="600" rx="12" fill="url(#substrateGrad)" stroke="rgba(255,176,102,0.5)" stroke-width="2"/>
+          <text x="200" y="220" class="label-text" style="fill:#ffd9a8;">ORGANIC SUBSTRATE · CoWoS-L</text>
+        </g>
+
+        <!-- Solder bumps grid (decorative) -->
+        <g fill="#ffb066" opacity="0.55">
+          <g id="solderRow"></g>
+        </g>
+
+        <!-- Interposer (silicon) -->
+        <g class="hot" data-comp="ch-interposer">
+          <rect x="240" y="260" width="920" height="460" rx="8" fill="url(#interposerGrad)" stroke="rgba(255,255,255,0.18)"/>
+          <text x="260" y="288" class="label-text" style="fill:#fff5e0;">SILICON INTERPOSER · TSV-CONNECTED</text>
+        </g>
+
+        <!-- HBM stacks (left/right of die complex) -->
+        <g class="hot" data-comp="ch-hbm">
+          <!-- Left HBM column -->
+          <rect x="280" y="320" width="120" height="160" rx="6" fill="url(#hbmGrad)" stroke="rgba(180,140,255,0.7)" stroke-width="1.5"/>
+          <g stroke="rgba(255,255,255,0.25)" fill="none">
+            <line x1="280" y1="340" x2="400" y2="340"/>
+            <line x1="280" y1="360" x2="400" y2="360"/>
+            <line x1="280" y1="380" x2="400" y2="380"/>
+            <line x1="280" y1="400" x2="400" y2="400"/>
+            <line x1="280" y1="420" x2="400" y2="420"/>
+            <line x1="280" y1="440" x2="400" y2="440"/>
+            <line x1="280" y1="460" x2="400" y2="460"/>
+          </g>
+          <text x="340" y="500" text-anchor="middle" class="label-text label-strong" style="fill:#e0d4ff;">HBM3e · 24 GB</text>
+
+          <rect x="280" y="510" width="120" height="160" rx="6" fill="url(#hbmGrad)" stroke="rgba(180,140,255,0.7)" stroke-width="1.5"/>
+          <g stroke="rgba(255,255,255,0.25)" fill="none">
+            <line x1="280" y1="530" x2="400" y2="530"/>
+            <line x1="280" y1="550" x2="400" y2="550"/>
+            <line x1="280" y1="570" x2="400" y2="570"/>
+            <line x1="280" y1="590" x2="400" y2="590"/>
+            <line x1="280" y1="610" x2="400" y2="610"/>
+            <line x1="280" y1="630" x2="400" y2="630"/>
+            <line x1="280" y1="650" x2="400" y2="650"/>
+          </g>
+          <text x="340" y="690" text-anchor="middle" class="label-text label-strong" style="fill:#e0d4ff;">HBM3e · 24 GB</text>
+
+          <rect x="1000" y="320" width="120" height="160" rx="6" fill="url(#hbmGrad)" stroke="rgba(180,140,255,0.7)" stroke-width="1.5"/>
+          <g stroke="rgba(255,255,255,0.25)" fill="none">
+            <line x1="1000" y1="340" x2="1120" y2="340"/>
+            <line x1="1000" y1="360" x2="1120" y2="360"/>
+            <line x1="1000" y1="380" x2="1120" y2="380"/>
+            <line x1="1000" y1="400" x2="1120" y2="400"/>
+            <line x1="1000" y1="420" x2="1120" y2="420"/>
+            <line x1="1000" y1="440" x2="1120" y2="440"/>
+            <line x1="1000" y1="460" x2="1120" y2="460"/>
+          </g>
+          <text x="1060" y="500" text-anchor="middle" class="label-text label-strong" style="fill:#e0d4ff;">HBM3e · 24 GB</text>
+
+          <rect x="1000" y="510" width="120" height="160" rx="6" fill="url(#hbmGrad)" stroke="rgba(180,140,255,0.7)" stroke-width="1.5"/>
+          <g stroke="rgba(255,255,255,0.25)" fill="none">
+            <line x1="1000" y1="530" x2="1120" y2="530"/>
+            <line x1="1000" y1="550" x2="1120" y2="550"/>
+            <line x1="1000" y1="570" x2="1120" y2="570"/>
+            <line x1="1000" y1="590" x2="1120" y2="590"/>
+            <line x1="1000" y1="610" x2="1120" y2="610"/>
+            <line x1="1000" y1="630" x2="1120" y2="630"/>
+            <line x1="1000" y1="650" x2="1120" y2="650"/>
+          </g>
+          <text x="1060" y="690" text-anchor="middle" class="label-text label-strong" style="fill:#e0d4ff;">HBM3e · 24 GB</text>
+        </g>
+
+        <!-- Compute Die A -->
+        <g class="hot" data-comp="ch-die">
+          <rect x="430" y="320" width="260" height="350" rx="4" fill="url(#diePattern)" stroke="#76e4ff" stroke-width="1.5"/>
+          <rect x="430" y="320" width="260" height="350" rx="4" fill="none" stroke="rgba(118,228,255,0.6)" stroke-width="0.5">
+            <animate attributeName="stroke-opacity" values="0.4;1;0.4" dur="2.4s" repeatCount="indefinite"/>
+          </rect>
+          <text x="560" y="345" text-anchor="middle" class="label-text label-strong" style="fill:#fff;">COMPUTE DIE A</text>
+          <text x="560" y="360" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">~104 B TRANSISTORS</text>
+        </g>
+
+        <!-- Compute Die B -->
+        <g class="hot" data-comp="ch-die">
+          <rect x="710" y="320" width="260" height="350" rx="4" fill="url(#diePattern)" stroke="#76e4ff" stroke-width="1.5"/>
+          <rect x="710" y="320" width="260" height="350" rx="4" fill="none" stroke="rgba(118,228,255,0.6)" stroke-width="0.5">
+            <animate attributeName="stroke-opacity" values="0.4;1;0.4" dur="2.4s" begin="1.2s" repeatCount="indefinite"/>
+          </rect>
+          <text x="840" y="345" text-anchor="middle" class="label-text label-strong" style="fill:#fff;">COMPUTE DIE B</text>
+          <text x="840" y="360" text-anchor="middle" class="label-text" style="font-size:9px; fill:#76e4ff;">~104 B TRANSISTORS</text>
+        </g>
+
+        <!-- Chip-to-Chip 10TB/s link -->
+        <g class="hot" data-comp="ch-c2c">
+          <rect x="690" y="380" width="20" height="240" fill="#0a1020" stroke="#b48cff"/>
+          <line x1="700" y1="390" x2="700" y2="610" stroke="#b48cff" stroke-width="3" stroke-dasharray="6 6">
+            <animate attributeName="stroke-dashoffset" from="0" to="-24" dur="0.7s" repeatCount="indefinite"/>
+          </line>
+        </g>
+        <text x="700" y="640" text-anchor="middle" class="label-text" style="fill:#b48cff; font-size:9px;">CHIP-TO-CHIP · 10 TB/s</text>
+
+        <!-- Tensor core call-outs on Die A -->
+        <g opacity="0.95">
+          <rect x="450" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="520" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="590" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="450" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="520" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="590" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="450" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <rect x="520" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <rect x="590" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <text x="560" y="540" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">SM CLUSTERS · 5TH-GEN TENSOR CORES</text>
+          <rect x="450" y="560" width="200" height="60" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)"/>
+          <text x="550" y="595" text-anchor="middle" class="label-text" style="font-size:10px; fill:#fff;">L2 CACHE · 50 MB</text>
+        </g>
+        <g opacity="0.95">
+          <rect x="730" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="800" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="870" y="380" width="60" height="40" fill="rgba(255,176,102,0.25)" stroke="#ffb066"/>
+          <rect x="730" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="800" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="870" y="430" width="60" height="40" fill="rgba(118,228,255,0.18)" stroke="#76e4ff"/>
+          <rect x="730" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <rect x="800" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <rect x="870" y="480" width="60" height="40" fill="rgba(180,140,255,0.18)" stroke="#b48cff"/>
+          <text x="840" y="540" text-anchor="middle" class="label-text" style="font-size:9px; fill:#ffb066;">SM CLUSTERS · 5TH-GEN TENSOR CORES</text>
+          <rect x="730" y="560" width="200" height="60" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)"/>
+          <text x="830" y="595" text-anchor="middle" class="label-text" style="font-size:10px; fill:#fff;">L2 CACHE · 50 MB</text>
+        </g>
+
+        <!-- Drill into silicon hint -->
+        <g class="hot" data-comp="ch-zoom-die" transform="translate(560 690)">
+          <rect x="-110" y="0" width="220" height="38" rx="19" fill="rgba(118,228,255,0.12)" stroke="rgba(118,228,255,0.5)"/>
+          <text x="0" y="24" text-anchor="middle" class="label-text" style="fill:#fff; font-size:11px; letter-spacing:0.12em;">↓ ZOOM INTO SILICON</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ================= LEVEL 4 — SILICON DIE ================= -->
+  <section class="scene" id="scene-silicon">
+    <div class="viewport">
+      <svg viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="siBg" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#06091a"/>
+            <stop offset="1" stop-color="#0a0e22"/>
+          </linearGradient>
+          <pattern id="logicCells" width="20" height="20" patternUnits="userSpaceOnUse">
+            <rect width="20" height="20" fill="#0a1230"/>
+            <rect x="2" y="2" width="6" height="6" fill="#1c2c5a"/>
+            <rect x="12" y="2" width="6" height="6" fill="#243a78"/>
+            <rect x="2" y="12" width="6" height="6" fill="#243a78"/>
+            <rect x="12" y="12" width="6" height="6" fill="#1c2c5a"/>
+            <line x1="0" y1="10" x2="20" y2="10" stroke="rgba(118,228,255,0.18)" stroke-width="0.4"/>
+            <line x1="10" y1="0" x2="10" y2="20" stroke="rgba(118,228,255,0.18)" stroke-width="0.4"/>
+          </pattern>
+          <pattern id="finePattern" width="6" height="6" patternUnits="userSpaceOnUse">
+            <rect width="6" height="6" fill="#0c163a"/>
+            <circle cx="3" cy="3" r="0.6" fill="rgba(118,228,255,0.5)"/>
+          </pattern>
+          <radialGradient id="siHotspot" cx="0.5" cy="0.5">
+            <stop offset="0" stop-color="rgba(255,176,102,0.4)"/>
+            <stop offset="1" stop-color="rgba(255,176,102,0)"/>
+          </radialGradient>
+        </defs>
+
+        <rect x="100" y="120" width="1200" height="660" rx="14" fill="url(#siBg)" stroke="rgba(118,228,255,0.18)"/>
+        <text x="120" y="148" class="label-text label-strong" style="font-size:13px; letter-spacing:0.18em;">STREAMING MULTIPROCESSOR (SM) · MICRO-ARCHITECTURE · 4 NM</text>
+        <text x="1280" y="148" text-anchor="end" class="label-text" style="fill:#76e4ff;">↩ BACK TO PACKAGE</text>
+
+        <!-- Wafer scale background -->
+        <rect x="140" y="180" width="1120" height="560" fill="url(#logicCells)" rx="6"/>
+
+        <!-- Hotspot glow -->
+        <ellipse cx="700" cy="460" rx="380" ry="240" fill="url(#siHotspot)" opacity="0.6">
+          <animate attributeName="opacity" values="0.3;0.7;0.3" dur="3s" repeatCount="indefinite"/>
+        </ellipse>
+
+        <!-- Functional blocks -->
+        <g class="hot" data-comp="si-tensor">
+          <rect x="220" y="240" width="280" height="180" rx="6" fill="url(#finePattern)" stroke="#ffb066" stroke-width="1.5"/>
+          <rect x="220" y="240" width="280" height="180" rx="6" fill="rgba(255,176,102,0.08)"/>
+          <text x="360" y="270" text-anchor="middle" class="label-text label-strong" style="fill:#ffb066;">TENSOR CORES</text>
+          <text x="360" y="290" text-anchor="middle" class="label-text" style="font-size:9px;">FP4 / FP8 / BF16 · MATRIX MUL</text>
+          <!-- mini-cells with pulse -->
+          <g>
+            <rect x="240" y="305" width="22" height="22" fill="#ffb066" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="0.8s" repeatCount="indefinite"/></rect>
+            <rect x="266" y="305" width="22" height="22" fill="#ffb066" opacity="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite"/></rect>
+            <rect x="292" y="305" width="22" height="22" fill="#ffb066" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="0.7s" repeatCount="indefinite"/></rect>
+            <rect x="318" y="305" width="22" height="22" fill="#ffb066" opacity="0.5"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite"/></rect>
+            <rect x="344" y="305" width="22" height="22" fill="#ffb066" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="0.9s" repeatCount="indefinite"/></rect>
+            <rect x="370" y="305" width="22" height="22" fill="#ffb066" opacity="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="0.85s" repeatCount="indefinite"/></rect>
+            <rect x="396" y="305" width="22" height="22" fill="#ffb066" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="0.95s" repeatCount="indefinite"/></rect>
+            <rect x="422" y="305" width="22" height="22" fill="#ffb066" opacity="0.5"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.05s" repeatCount="indefinite"/></rect>
+            <rect x="448" y="305" width="22" height="22" fill="#ffb066" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="0.75s" repeatCount="indefinite"/></rect>
+            <rect x="474" y="305" width="22" height="22" fill="#ffb066" opacity="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.15s" repeatCount="indefinite"/></rect>
+          </g>
+          <text x="360" y="365" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(255,217,168,0.8);">~5 PFLOPS DENSE FP4 PER SM × 156</text>
+          <text x="360" y="395" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(255,217,168,0.6);">CORE BLOCK FOR ALL AI MATMUL WORKLOADS</text>
+        </g>
+
+        <g class="hot" data-comp="si-cuda">
+          <rect x="540" y="240" width="280" height="180" rx="6" fill="url(#finePattern)" stroke="#76e4ff" stroke-width="1.5"/>
+          <rect x="540" y="240" width="280" height="180" rx="6" fill="rgba(118,228,255,0.06)"/>
+          <text x="680" y="270" text-anchor="middle" class="label-text label-strong" style="fill:#76e4ff;">CUDA / SIMT CORES</text>
+          <text x="680" y="290" text-anchor="middle" class="label-text" style="font-size:9px;">FP32 · FP64 · INT</text>
+          <g>
+            <circle cx="570" cy="320" r="6" fill="#76e4ff" opacity="0.7"><animate attributeName="opacity" values="0.3;1;0.3" dur="1s" repeatCount="indefinite"/></circle>
+            <circle cx="600" cy="320" r="6" fill="#76e4ff" opacity="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.2s" repeatCount="indefinite"/></circle>
+            <circle cx="630" cy="320" r="6" fill="#76e4ff" opacity="0.7"><animate attributeName="opacity" values="0.3;1;0.3" dur="0.9s" repeatCount="indefinite"/></circle>
+            <circle cx="660" cy="320" r="6" fill="#76e4ff" opacity="0.5"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite"/></circle>
+            <circle cx="690" cy="320" r="6" fill="#76e4ff" opacity="0.7"><animate attributeName="opacity" values="0.3;1;0.3" dur="0.85s" repeatCount="indefinite"/></circle>
+            <circle cx="720" cy="320" r="6" fill="#76e4ff" opacity="0.6"><animate attributeName="opacity" values="0.3;1;0.3" dur="0.95s" repeatCount="indefinite"/></circle>
+            <circle cx="750" cy="320" r="6" fill="#76e4ff" opacity="0.7"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.05s" repeatCount="indefinite"/></circle>
+            <circle cx="780" cy="320" r="6" fill="#76e4ff" opacity="0.5"><animate attributeName="opacity" values="0.3;1;0.3" dur="1.15s" repeatCount="indefinite"/></circle>
+          </g>
+          <text x="680" y="365" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(170,220,255,0.7);">SCALAR / VECTOR EXECUTION UNITS</text>
+          <text x="680" y="395" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(170,220,255,0.5);">PRE/POST-PROCESS, SOFTMAX, LAYERNORM</text>
+        </g>
+
+        <g class="hot" data-comp="si-cache">
+          <rect x="860" y="240" width="280" height="180" rx="6" fill="url(#finePattern)" stroke="#b48cff" stroke-width="1.5"/>
+          <rect x="860" y="240" width="280" height="180" rx="6" fill="rgba(180,140,255,0.06)"/>
+          <text x="1000" y="270" text-anchor="middle" class="label-text label-strong" style="fill:#b48cff;">SHARED MEMORY / L1 / TMA</text>
+          <g>
+            <rect x="880" y="290" width="240" height="14" fill="rgba(180,140,255,0.3)"/>
+            <rect x="880" y="308" width="240" height="14" fill="rgba(180,140,255,0.4)"/>
+            <rect x="880" y="326" width="240" height="14" fill="rgba(180,140,255,0.3)"/>
+            <rect x="880" y="344" width="240" height="14" fill="rgba(180,140,255,0.4)"/>
+            <rect x="880" y="362" width="240" height="14" fill="rgba(180,140,255,0.3)"/>
+          </g>
+          <text x="1000" y="395" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(220,200,255,0.7);">228 KB SHARED PER SM · TENSOR MEMORY ACCELERATOR</text>
+        </g>
+
+        <!-- Lower row: TSV / interconnect / power -->
+        <g class="hot" data-comp="si-tsv">
+          <rect x="220" y="460" width="280" height="160" rx="6" fill="url(#finePattern)" stroke="#76e4ff" stroke-width="1.5"/>
+          <text x="360" y="490" text-anchor="middle" class="label-text label-strong" style="fill:#76e4ff;">TSVs &amp; INTERCONNECT</text>
+          <g stroke="#76e4ff" stroke-width="1" fill="none">
+            <line x1="240" y1="510" x2="240" y2="600"/><line x1="260" y1="510" x2="260" y2="600"/>
+            <line x1="280" y1="510" x2="280" y2="600"/><line x1="300" y1="510" x2="300" y2="600"/>
+            <line x1="320" y1="510" x2="320" y2="600"/><line x1="340" y1="510" x2="340" y2="600"/>
+            <line x1="360" y1="510" x2="360" y2="600"/><line x1="380" y1="510" x2="380" y2="600"/>
+            <line x1="400" y1="510" x2="400" y2="600"/><line x1="420" y1="510" x2="420" y2="600"/>
+            <line x1="440" y1="510" x2="440" y2="600"/><line x1="460" y1="510" x2="460" y2="600"/>
+            <line x1="480" y1="510" x2="480" y2="600"/>
+          </g>
+          <g fill="#76e4ff">
+            <circle cx="240" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.6s" repeatCount="indefinite"/></circle>
+            <circle cx="280" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.4s" begin="0.3s" repeatCount="indefinite"/></circle>
+            <circle cx="320" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.5s" begin="0.6s" repeatCount="indefinite"/></circle>
+            <circle cx="360" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.7s" begin="0.2s" repeatCount="indefinite"/></circle>
+            <circle cx="400" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.3s" begin="0.5s" repeatCount="indefinite"/></circle>
+            <circle cx="440" cy="555" r="2"><animate attributeName="cy" from="510" to="600" dur="1.6s" begin="0.7s" repeatCount="indefinite"/></circle>
+          </g>
+          <text x="360" y="635" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(170,220,255,0.6);">THROUGH-SILICON VIAS · COPPER PILLARS</text>
+        </g>
+
+        <g class="hot" data-comp="si-power">
+          <rect x="540" y="460" width="280" height="160" rx="6" fill="url(#finePattern)" stroke="#ffb066" stroke-width="1.5"/>
+          <text x="680" y="490" text-anchor="middle" class="label-text label-strong" style="fill:#ffb066;">POWER GRID</text>
+          <g stroke="#ffb066" stroke-width="0.8" fill="none">
+            <line x1="560" y1="510" x2="800" y2="510"/>
+            <line x1="560" y1="525" x2="800" y2="525"/>
+            <line x1="560" y1="540" x2="800" y2="540"/>
+            <line x1="560" y1="555" x2="800" y2="555"/>
+            <line x1="560" y1="570" x2="800" y2="570"/>
+            <line x1="560" y1="585" x2="800" y2="585"/>
+            <line x1="580" y1="500" x2="580" y2="600"/>
+            <line x1="620" y1="500" x2="620" y2="600"/>
+            <line x1="660" y1="500" x2="660" y2="600"/>
+            <line x1="700" y1="500" x2="700" y2="600"/>
+            <line x1="740" y1="500" x2="740" y2="600"/>
+            <line x1="780" y1="500" x2="780" y2="600"/>
+          </g>
+          <text x="680" y="635" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(255,217,168,0.7);">BACKSIDE POWER DELIVERY (FUTURE) · BSPDN</text>
+        </g>
+
+        <g class="hot" data-comp="si-transistor">
+          <rect x="860" y="460" width="280" height="160" rx="6" fill="url(#finePattern)" stroke="#ff5d8f" stroke-width="1.5"/>
+          <text x="1000" y="490" text-anchor="middle" class="label-text label-strong" style="fill:#ff5d8f;">TRANSISTOR (FinFET / GAA)</text>
+          <!-- Simplified transistor schematic -->
+          <g transform="translate(940 510)">
+            <rect x="0" y="40" width="120" height="14" fill="#5b6987"/>
+            <rect x="40" y="20" width="40" height="60" fill="rgba(255,93,143,0.3)" stroke="#ff5d8f"/>
+            <rect x="50" y="0" width="20" height="100" fill="rgba(118,228,255,0.4)" stroke="#76e4ff"/>
+            <text x="60" y="115" text-anchor="middle" class="label-text" style="font-size:8px;">GATE</text>
+            <text x="10" y="115" text-anchor="middle" class="label-text" style="font-size:8px;">SOURCE</text>
+            <text x="110" y="115" text-anchor="middle" class="label-text" style="font-size:8px;">DRAIN</text>
+            <!-- Electron flow -->
+            <circle cx="20" cy="47" r="2" fill="#76e4ff"><animate attributeName="cx" from="20" to="100" dur="1.4s" repeatCount="indefinite"/></circle>
+            <circle cx="20" cy="47" r="2" fill="#76e4ff"><animate attributeName="cx" from="20" to="100" dur="1.4s" begin="0.5s" repeatCount="indefinite"/></circle>
+            <circle cx="20" cy="47" r="2" fill="#76e4ff"><animate attributeName="cx" from="20" to="100" dur="1.4s" begin="1s" repeatCount="indefinite"/></circle>
+          </g>
+          <text x="1000" y="635" text-anchor="middle" class="label-text" style="font-size:9px; fill:rgba(255,180,200,0.7);">208 BILLION TRANSISTORS · 4 NM TSMC</text>
+        </g>
+
+        <!-- Scanline effect -->
+        <rect x="140" y="180" width="1120" height="2" fill="rgba(118,228,255,0.5)" opacity="0.6">
+          <animate attributeName="y" values="180;740;180" dur="6s" repeatCount="indefinite"/>
+        </rect>
+
+        <text x="700" y="700" text-anchor="middle" class="label-text" style="fill:rgba(255,255,255,0.6);">↑ HOVER A BLOCK FOR DETAILS · CLICK FOR FULL EDUCATIONAL OVERLAY</text>
+
+      </svg>
+    </div>
+  </section>
+
+</div>
+
+<!-- ================= INFO PANEL (permanent right rail, hidden on hero) ================= -->
+<aside class="info-panel hidden" id="infoPanel">
+  <div class="info-head">
+    <div>
+      <div class="info-eyebrow" id="ip-eyebrow">EXPLORATION</div>
+      <div class="info-title" id="ip-title">Anatomy of an AI Rack</div>
+    </div>
+    <button class="info-close" id="ip-close" aria-label="Clear selection" title="Clear selection">×</button>
+  </div>
+  <div class="info-body" id="ip-body"><!-- populated by JS --></div>
+</aside>
+
+<!-- ================= TOOLTIP ================= -->
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-name" id="tt-name"></div>
+  <div class="tooltip-meta" id="tt-meta"></div>
+</div>
+
+<!-- ================= MINIMAP ================= -->
+<div class="minimap" id="minimap">
+  <div class="minimap-title">Zoom Path</div>
+  <div class="minimap-step" data-scene="hero">
+    <span class="minimap-dot"></span>
+    <span>Home</span>
+    <span class="minimap-zoom">×1</span>
+  </div>
+  <div class="minimap-step" data-scene="datacenter">
+    <span class="minimap-dot"></span>
+    <span>Data Centre</span>
+    <span class="minimap-zoom">×1</span>
+  </div>
+  <div class="minimap-step" data-scene="rack">
+    <span class="minimap-dot"></span>
+    <span>Single Rack</span>
+    <span class="minimap-zoom">×30</span>
+  </div>
+  <div class="minimap-step" data-scene="server">
+    <span class="minimap-dot"></span>
+    <span>Server Node</span>
+    <span class="minimap-zoom">×900</span>
+  </div>
+  <div class="minimap-step" data-scene="chip">
+    <span class="minimap-dot"></span>
+    <span>GPU Package</span>
+    <span class="minimap-zoom">×9k</span>
+  </div>
+  <div class="minimap-step" data-scene="silicon">
+    <span class="minimap-dot"></span>
+    <span>Silicon / SM</span>
+    <span class="minimap-zoom">×900k</span>
+  </div>
+</div>
+
+<div class="hint" id="hint">Click any glowing component · <kbd>ESC</kbd> Back · <kbd>H</kbd> Home</div>
+
+<script>
+/* ================================================================
+   DATA MODEL: every clickable component, every level
+   ================================================================ */
+
+const DATA = {
+  /* ============== HERO (no data) ============== */
+
+  /* ============== LEVEL 0 — DATA CENTRE ============== */
+  'dc-aipod': {
+    eyebrow: 'DATA CENTRE · COMPUTE',
+    title: 'AI Training Pod',
+    drillTo: 'rack',
+    cost: 60,
+    what: `A contiguous block of 30+ NVL72-class racks acting as a single training cluster. Every GPU is wired to every other GPU through a non-blocking InfiniBand or Spectrum-X fat-tree. A frontier-model training run treats this entire pod as one giant computer.`,
+    why: `Roughly <strong>60% of the data centre's capex</strong> is concentrated here — silicon and the supporting tray hardware. AI labs increasingly buy "pods" as the unit of capacity rather than racks or servers.`,
+    who: ['NVIDIA (silicon)', 'Hyperscalers (operator)', 'Foxconn / Wistron / Quanta (integration)', 'Equinix / Digital Realty (colo)'],
+    ai: `The pod is the training cluster. Frontier LLMs (GPT-class, Claude-class, Gemini-class) consume one or more pods continuously for weeks at a time.`,
+    specs: { 'Racks': '~32 NVL72', 'GPUs': '~2,300', 'Power': '~4 MW', 'Bandwidth': '800 Gb/s per GPU' },
+    primary: 'NVIDIA'
+  },
+  'dc-genpod': {
+    eyebrow: 'DATA CENTRE · COMPUTE',
+    title: 'General Compute / Inference Pod',
+    drillTo: null,
+    cost: 12,
+    what: `Lower-density racks running inference, batch jobs, traditional cloud workloads, and the supporting microservices (model routers, caches, telemetry, control plane). Mix of GPU and CPU servers, often air- or hybrid-cooled.`,
+    why: `Inference is the long tail — fewer FLOPs per request but billions of requests. Different economics, different hardware mix.`,
+    who: ['NVIDIA (H100/H200/L40S)', 'AMD (MI300X/MI325X)', 'AWS Inferentia', 'Google TPU v5e', 'Intel Gaudi'],
+    ai: `Hosts deployed models. The training pod creates the weights once; this pod serves them billions of times.`,
+    specs: { 'Density': '15–30 kW/rack', 'Cooling': 'Air + rear-door HX', 'Servers': '~1,500' }
+  },
+  'dc-storage': {
+    eyebrow: 'DATA CENTRE · STORAGE',
+    title: 'Parallel Filesystem Pod',
+    drillTo: null,
+    cost: 8,
+    what: `Multi-petabyte all-flash arrays running parallel filesystems (WEKA, VAST Data, DDN ExaScaler, Lustre). They feed the GPU pods at hundreds of GB/s and store dataset versions, model checkpoints, and intermediate artifacts.`,
+    why: `A starving GPU is a wasted GPU. Modern AI workloads move terabytes per second between storage and compute — only flash can keep up.`,
+    who: ['VAST Data', 'WEKA', 'DDN', 'Pure Storage', 'NetApp', 'Samsung / SK hynix / Solidigm (flash)'],
+    ai: `Holds training datasets (text, image, video, multimodal corpora), model checkpoints (one per few thousand steps), and the activation/gradient checkpoints used for fault tolerance.`,
+    specs: { 'Capacity': '50–200 PB', 'Throughput': '1–2 TB/s', 'Latency': '~200 µs', 'Drive count': '~2,000 NVMe' }
+  },
+  'dc-spine': {
+    eyebrow: 'DATA CENTRE · NETWORK',
+    title: 'Network Spine',
+    drillTo: null,
+    cost: 4,
+    what: `The cross-pod fabric: a fat-tree of high-radix switches (NVIDIA Quantum-2 InfiniBand or Spectrum-X Ethernet) that interconnects every rack with every other. Typically 1.6 Tb/s per leaf-spine link in modern AI builds.`,
+    why: `The spine is what turns thousands of separate GPUs into one logical supercomputer. Its topology and bisection bandwidth set a hard ceiling on how large a model you can practically train.`,
+    who: ['NVIDIA (Quantum-2, Spectrum-X)', 'Arista', 'Cisco', 'Broadcom (Tomahawk silicon)', 'Marvell'],
+    ai: `Carries every byte of all-reduce, all-to-all, and pipeline-parallel traffic between training pods. Adaptive routing and SHARP in-network reduction live here.`,
+    specs: { 'Topology': 'Non-blocking 3-tier fat-tree', 'Per port': '400–800 Gb/s', 'Switches': '~80 in spine', 'Latency': '<1 µs cross-pod' },
+    primary: 'NVIDIA'
+  },
+  'dc-cooling': {
+    eyebrow: 'DATA CENTRE · THERMAL',
+    title: 'Cooling Plant + CDU',
+    drillTo: null,
+    cost: 10,
+    what: `Where the heat actually goes. Coolant Distribution Units (CDUs) bridge the rack-level water loop to the facility loop, which feeds chillers and dry coolers / cooling towers outside. In modern AI builds, ~80% of heat removal is liquid.`,
+    why: `A 96 MW IT load means 96 MW of waste heat. Without efficient cooling — and without recovering some of that heat — operating cost dwarfs capex over a decade.`,
+    who: ['Vertiv', 'Schneider Electric', 'Trane', 'Carrier', 'CoolIT', 'Boyd', 'Submer (immersion)'],
+    ai: `Direct-to-chip liquid cooling lets a Blackwell run flat-out without thermal throttling. Air-cooled inference pods coexist on the same site, fed by the same chilled-water plant.`,
+    specs: { 'Capacity': '110 MW thermal', 'PUE': '1.10', 'Loop ΔT': '13 °C', 'WUE': 'Targeted < 0.2 L/kWh' }
+  },
+  'dc-power': {
+    eyebrow: 'DATA CENTRE · POWER',
+    title: 'Substation + Generators',
+    drillTo: null,
+    cost: 8,
+    what: `Utility power enters at 230 kV, steps down through a private substation to medium-voltage (35 kV) feeders, then again to the 415 V busbar inside each rack. Diesel or gas gensets stand by as backup, sized to carry the entire IT load.`,
+    why: `Grid hookup is now the binding constraint on AI build-out — utility queues for hundreds of megawatts stretch into 2028+. Hyperscalers buy retired aluminum smelters and nuclear sites for their substations.`,
+    who: ['ABB', 'Siemens Energy', 'Hitachi Energy', 'Schneider Electric', 'Caterpillar (gensets)', 'Cummins'],
+    ai: `Without confirmed power, no AI campus exists. This is why training-cluster site selection has shifted from "where the fiber is" to "where the megawatts are."`,
+    specs: { 'Utility feed': '230 kV', 'Substation': '2× 100 MVA', 'Generators': '12× 3.5 MW', 'Fuel': '72 hr at full load' }
+  },
+  'dc-ups': {
+    eyebrow: 'DATA CENTRE · POWER',
+    title: 'UPS · Battery Hall',
+    drillTo: null,
+    cost: 4,
+    what: `Lithium-ion battery rooms (replacing legacy lead-acid VRLA in modern builds) provide 5–15 minutes of ride-through. Long enough to either restore the grid feed or for the diesel gensets to come up to load.`,
+    why: `A training run that loses power loses hours of work and corrupts in-flight gradient state. Continuous power, not redundant power, is the requirement.`,
+    who: ['Vertiv', 'Schneider Electric', 'Eaton', 'Toshiba', 'CATL / LG / Samsung (cells)'],
+    ai: `Sized for an "uneventful brownout" — short utility blips that happen weekly in many grids. The genset handles the rare full outage.`,
+    specs: { 'Capacity': '120 MWh', 'Topology': 'Modular 1.25 MW UPS blocks', 'Chemistry': 'LFP', 'Ride-through': '5–15 min' }
+  },
+  'dc-fiber': {
+    eyebrow: 'DATA CENTRE · CONNECTIVITY',
+    title: 'Meet-Me Room',
+    drillTo: null,
+    cost: 1,
+    what: `The carrier-neutral fiber room where every long-haul provider lights up their cross-connect. Dark fiber, IP transit, peering exchanges, cloud on-ramps, and dedicated waves to other AI campuses all terminate here.`,
+    why: `Training data is loaded in petabytes and inference traffic flows out continuously. The MMR is how the data centre breathes.`,
+    who: ['Equinix', 'Digital Realty', 'Lumen', 'Zayo', 'Telstra', 'NTT'],
+    ai: `Frontier-model serving requires geographic distribution — copies of the model close to users. Fiber out of the MMR is what makes that possible.`,
+    specs: { 'Cross-connects': '~2,000', 'Peering capacity': 'Multi-terabit', 'Carriers': '20+' }
+  },
+  'dc-bms': {
+    eyebrow: 'DATA CENTRE · OPERATIONS',
+    title: 'BMS · DCIM',
+    drillTo: null,
+    cost: 1,
+    what: `Building Management System and Data Centre Infrastructure Management software supervise everything: temperature/humidity, fan and pump RPM, transformer loads, water flow, fire/leak detection, generator readiness, and capacity planning.`,
+    why: `At 96 MW and 18,000 GPUs, no human can hold operating state in their head. The BMS is the central nervous system — and increasingly an AI workload itself.`,
+    who: ['Schneider Electric (EcoStruxure)', 'Honeywell', 'Siemens', 'Vertiv (Trellis)', 'Nlyte'],
+    ai: `Modern operators run anomaly-detection and predictive maintenance models inside the same data centre they monitor — eating their own dog food.`,
+    specs: { 'Sensors': '~120,000', 'Protocols': 'BACnet, Modbus, SNMP, Redfish', 'Update rate': '1 Hz' }
+  },
+  'dc-utility': {
+    eyebrow: 'DATA CENTRE · POWER',
+    title: 'Utility Feed',
+    drillTo: null,
+    cost: 0,
+    what: `230 kV high-voltage transmission line dropping into the site's private substation. The interconnect agreement with the utility is often the document that gates whether a campus gets built at all.`,
+    why: `Power has replaced silicon as the headline scarcity in AI. Grid queues to interconnect 100+ MW load are now multi-year affairs in most US ISOs.`,
+    who: ['Local utility / TSO', 'Direct PPAs with renewables developers'],
+    ai: `Some hyperscalers contract directly with nuclear (SMR), solar, wind, and geothermal generation behind-the-meter to bypass grid wait-times.`,
+    specs: { 'Voltage': '230 kV', 'Capacity': '~150 MVA', 'Redundancy': '2N feeders', 'Source mix': 'Increasingly carbon-free PPA' }
+  },
+  'dc-shell': {
+    eyebrow: 'DATA CENTRE · SHELL',
+    title: 'Site & Building Shell',
+    drillTo: null,
+    cost: 6,
+    what: `The 50-acre site, the tilt-up concrete building, raised floors, fire suppression, security perimeter — everything that isn't IT, power, or cooling. Modern AI builds have evolved standard "kit-of-parts" designs that hyperscalers can deploy in 18 months.`,
+    why: `Construction speed is now a strategic weapon. Whoever brings the next 100 MW online first captures the next training run.`,
+    who: ['DPR Construction', 'Turner', 'Holder', 'Mortenson', 'Skanska'],
+    ai: `Building-shell capacity, not silicon, is sometimes the binding constraint on a training roadmap.`,
+    specs: { 'Footprint': '~600,000 sq ft', 'Shell tier': 'III+ / IV elements', 'Build time': '~18 months', 'Floor loading': '350+ lb/sq ft' }
+  },
+
+  /* ============== LEVEL 1 — RACK ============== */
+  'rk-switch': {
+    eyebrow: 'RACK · NETWORKING',
+    title: 'InfiniBand / Ethernet Switch',
+    drillTo: null,
+    cost: 4,
+    what: `A top-of-rack switch is the high-bandwidth fabric backbone connecting every GPU server to every other GPU in the cluster. In modern AI racks this is typically <strong>NVIDIA Quantum-2 InfiniBand</strong> at 400–800 Gbps per port, or <strong>Spectrum-X Ethernet</strong> tuned for AI workloads.`,
+    why: `Distributed AI training fails the moment the network bottlenecks. Gradients must synchronize across thousands of GPUs every step — even a 1% slowdown in collective communication can stretch a 90-day training run by days.`,
+    who: ['NVIDIA Quantum-2', 'Arista 7060X', 'Cisco Nexus', 'Broadcom Tomahawk', 'Marvell Teralynx'],
+    ai: `Powers <strong>all-reduce</strong> and <strong>all-to-all</strong> collectives. Latency below 1µs and adaptive routing determine how well a model parallelism scheme scales out.`,
+    specs: { 'Bandwidth': '64× 800 Gb/s ports', 'Latency': '<800 ns', 'Power': '~750 W', 'Protocol': 'NDR InfiniBand / RoCEv2' },
+    primary: 'NVIDIA'
+  },
+  'rk-gpu': {
+    eyebrow: 'RACK · COMPUTE',
+    title: 'GPU Server Tray',
+    drillTo: 'server',
+    cost: 72,
+    what: `Each tray is a self-contained 8-GPU compute node — the workhorse of the rack. In an NVL72-class system, 18 trays of 4 Blackwell GPUs each (or 8 Hoppers) deliver the bulk of the FLOPs. Every tray contains GPUs, CPUs, NICs, NVMe, and full liquid cooling.`,
+    why: `~70–75% of an AI rack's bill of materials lives inside these trays. The GPU silicon itself, plus the HBM stacked on it, is the single most expensive and supply-constrained component in modern computing.`,
+    who: ['NVIDIA (silicon)', 'Foxconn / Wistron (system)', 'Supermicro', 'Quanta', 'Inventec', 'Dell'],
+    ai: `These trays run training (forward + backward + optimizer step) and inference (KV-cache, attention, MLP). Every parameter of every frontier model touches these GPUs.`,
+    specs: { 'GPUs/tray': '4× Blackwell or 8× Hopper', 'Memory': '768 GB – 1.5 TB HBM', 'TDP': '~10 kW per tray', 'NICs': '2–8× 400G' },
+    primary: 'NVIDIA'
+  },
+  'rk-psu': {
+    eyebrow: 'RACK · POWER',
+    title: 'Power Distribution / PSUs',
+    drillTo: null,
+    cost: 5,
+    what: `Redundant 415 V three-phase power-shelf modules step datacenter feed down to the 48 V or 54 V busbar that every tray draws from. Modern AI racks use a centralized busbar to avoid losing 3–5% of every kilowatt to PSU conversion in each server.`,
+    why: `A 120 kW rack pulls more power than a small office building. Conversion efficiency of <strong>97%+</strong> at this scale saves megawatts of waste heat and millions in electricity over a cluster's lifetime.`,
+    who: ['Delta Electronics', 'Lite-On', 'Flex Power', 'ABB', 'Vertiv'],
+    ai: `Power, not silicon, is now the binding constraint on AI scale-out. Hyperscalers buy decommissioned aluminum smelters for their grid hookups.`,
+    specs: { 'Capacity': '4× 33 kW (N+N)', 'Efficiency': '97.5% (Titanium)', 'Voltage': '415 VAC → 48 VDC busbar', 'Hot-swap': 'Yes' },
+    primary: 'Delta'
+  },
+  'rk-cooling': {
+    eyebrow: 'RACK · THERMAL',
+    title: 'Liquid Cooling Manifold',
+    drillTo: null,
+    cost: 6,
+    what: `Two vertical manifolds carry cool water in (~32 °C) and warm water out (~45 °C). Quick-disconnect fittings drop into every tray's cold plate. A rear or row-level <strong>CDU</strong> (Coolant Distribution Unit) closes the loop with the facility chilled-water supply.`,
+    why: `Air can no longer cool a 1000 W GPU. Direct-liquid cooling is what makes Blackwell-class density physically possible — without it, you'd need a small wind tunnel per server.`,
+    who: ['CoolIT Systems', 'Asetek', 'Vertiv', 'Motivair', 'Boyd', 'Submer (immersion)'],
+    ai: `Enables PUE (Power Usage Effectiveness) below 1.1 in hyperscale AI campuses, vs 1.5+ for legacy air-cooled data centers.`,
+    specs: { 'Flow rate': '~6 LPM per GPU', 'ΔT': '~13 °C', 'Pressure': '<3 bar', 'Material': 'Copper plates + EPDM hose' },
+    primary: 'CoolIT'
+  },
+  'rk-storage': {
+    eyebrow: 'RACK · STORAGE',
+    title: 'NVMe Flash Storage',
+    drillTo: null,
+    cost: 3,
+    what: `Local NVMe SSDs hold the active dataset shard, model checkpoints, and shuffle buffers. In a real cluster, parallel filesystems like <strong>WEKA</strong>, <strong>VAST Data</strong>, or <strong>DDN ExaScaler</strong> tier this with multi-petabyte all-flash arrays elsewhere in the row.`,
+    why: `Loading a checkpoint of a trillion-parameter model is multi-terabyte — slow storage means GPUs sit idle. Throughput per dollar matters more than capacity.`,
+    who: ['Samsung', 'SK hynix', 'Micron', 'Kioxia', 'Solidigm', 'WEKA (software)', 'VAST Data'],
+    ai: `Hot path for training: shuffle, augmentation, gradient checkpointing. Cold path: dataset versions and model artifact archive.`,
+    specs: { 'Capacity': '8× 30.72 TB', 'Throughput': '~14 GB/s per drive', 'Form factor': 'E1.S / E3.S NVMe', 'Endurance': '1–3 DWPD' },
+    primary: 'Samsung'
+  },
+  'rk-nvlink': {
+    eyebrow: 'RACK · INTERCONNECT',
+    title: 'NVLink Switch Spine',
+    drillTo: null,
+    cost: 8,
+    what: `Inside an NVL72, every GPU talks to every other GPU at <strong>1.8 TB/s</strong> through dedicated NVLink Switch ASICs. Copper cartridges deliver this without optics, saving ~20 kW per rack vs equivalent optical interconnect.`,
+    why: `For a single rack to behave like one giant GPU, intra-rack bandwidth must vastly exceed network bandwidth. NVLink-72 turns 72 GPUs into a unified 13.5 TB pool of memory.`,
+    who: ['NVIDIA (Switch ASIC)', 'Amphenol (copper cartridge)', 'TE Connectivity', 'Aviva Links'],
+    ai: `Required for tensor-parallel training of frontier models. Models with parameters > single-GPU memory must shard across NVLink-connected GPUs.`,
+    specs: { 'Bandwidth': '1.8 TB/s per GPU', 'Topology': 'All-to-all, 2-tier', 'Latency': '<100 ns within rack', 'Energy': '~5 pJ/bit' },
+    primary: 'NVIDIA'
+  },
+  'rk-mgmt': {
+    eyebrow: 'RACK · MANAGEMENT',
+    title: 'BMC & Telemetry',
+    drillTo: null,
+    cost: 1,
+    what: `The Baseboard Management Controller is a small dedicated SoC on every tray exposing temperatures, voltages, fan/pump RPM, GPU health, and remote console — over Redfish/IPMI to the rack-level orchestrator.`,
+    why: `When a single training job spans 10 000+ GPUs, automated health monitoring is the only way to evict failed nodes mid-run before they corrupt the gradient sync.`,
+    who: ['ASPEED', 'Nuvoton', 'AMI (firmware)', 'Insyde'],
+    ai: `Feeds MLOps platforms (Prometheus, Grafana, custom hyperscaler tooling) with the metrics needed for fault tolerance and chaos-resilient training.`,
+    specs: { 'Interface': 'Redfish, IPMI, gNMI', 'CPU': 'ARM Cortex-A7', 'OOB': 'Dedicated 1 GbE' },
+    primary: 'ASPEED'
+  },
+
+  /* ============== LEVEL 2 — SERVER ============== */
+  'sv-board': {
+    eyebrow: 'SERVER · MOTHERBOARD',
+    title: 'Universal Baseboard (UBB)',
+    drillTo: null,
+    cost: 6,
+    what: `An OAM-compliant baseboard hosting 8 SXM-style GPU sockets, the CPU complex, DIMM slots, NIC slots, and the power-delivery and PCIe routing fabric. The PCB is typically <strong>20+ layers</strong> of glass-cloth FR4/M-grade material to handle the signal integrity at PCIe Gen5/6 speeds.`,
+    why: `Every GPU-to-GPU NVLink trace, every PCIe Gen5 lane, every 1000+ A power rail crosses this board. Sub-millimeter routing errors cost a percent of training throughput.`,
+    who: ['Foxconn', 'Wistron', 'Inventec', 'Quanta', 'Celestica'],
+    ai: `Defines the unit of fault domain: when a tray fails, the whole 8-GPU node drops out of the job.`,
+    specs: { 'Layers': '20–28', 'Sockets': '8× SXM5 + 2× CPU', 'PCIe': 'Gen5 ×16 per slot', 'Standard': 'OAM v2.0' },
+    primary: 'Foxconn'
+  },
+  'sv-gpu': {
+    eyebrow: 'SERVER · COMPUTE',
+    title: 'GPU Package',
+    drillTo: 'chip',
+    cost: 50,
+    what: `A single GPU package combines compute dies, HBM3e memory stacks, and a silicon interposer in a CoWoS (Chip-on-Wafer-on-Substrate) advanced package. The visible heatsink/cold-plate is removed in this exploded view to show the silicon underneath.`,
+    why: `~50% of an AI server's BoM is just <strong>this one component, eight times</strong>. Demand consistently exceeds supply because TSMC's CoWoS capacity is the global throttle on AI hardware.`,
+    who: ['NVIDIA (designer)', 'TSMC (fab + CoWoS)', 'SK hynix (HBM)', 'Micron (HBM)', 'Samsung (HBM)'],
+    ai: `Holds the model parameters, KV-cache, optimizer state, and activations. The GPU literally <em>is</em> the AI workload at the system level.`,
+    specs: { 'Process': 'TSMC 4NP', 'Transistors': '208 B (Blackwell)', 'HBM': '192 GB HBM3e', 'TDP': '1000–1200 W', 'FP4 perf': '~20 PFLOPS dense' },
+    primary: 'NVIDIA'
+  },
+  'sv-cpu': {
+    eyebrow: 'SERVER · HOST',
+    title: 'CPU + DDR DIMMs',
+    drillTo: null,
+    cost: 4,
+    what: `The host CPU (NVIDIA Grace, AMD EPYC, or Intel Xeon) orchestrates data loading, kernel launches, network packet handling, and the OS. Adjacent <strong>DDR5</strong> or <strong>LPDDR5X</strong> DIMMs hold the host-side buffers and the dataset shards en route to the GPUs.`,
+    why: `In well-tuned AI systems the CPU is mostly idle — but a slow data path bottlenecks even the best GPUs. NVIDIA's Grace pairs ARM cores with LPDDR5X for 5× higher bandwidth than typical DDR5 servers.`,
+    who: ['NVIDIA (Grace)', 'AMD (EPYC)', 'Intel (Xeon)', 'Samsung / Micron / SK hynix (DRAM)'],
+    ai: `Runs the dataloader, scheduler, network stack, and Python frontend. NVLink-C2C between Grace and Blackwell lets CPU and GPU share a coherent address space.`,
+    specs: { 'CPU': 'Grace 72-core ARM Neoverse V2', 'Memory': '480 GB LPDDR5X', 'BW': '512 GB/s', 'C2C link': '900 GB/s NVLink' },
+    primary: 'NVIDIA'
+  },
+  'sv-nic': {
+    eyebrow: 'SERVER · NETWORK',
+    title: 'NIC / DPU (ConnectX-7 / BlueField)',
+    drillTo: null,
+    cost: 3,
+    what: `Smart Network Interface Card — but in AI servers it's increasingly a <strong>DPU</strong> (Data Processing Unit) running its own ARM cores, offloading networking, security, and storage virtualization from the host.`,
+    why: `Each GPU often gets its own NIC for line-rate RDMA. GPUDirect lets the NIC DMA straight from one GPU's memory to another GPU's memory across the network — no CPU touch.`,
+    who: ['NVIDIA (ConnectX/BlueField)', 'Broadcom (Thor 2)', 'AMD/Pensando', 'Intel (E810)'],
+    ai: `Implements RDMA, SHARP in-network reduction, and congestion control tuned for the all-reduce traffic pattern that dominates training.`,
+    specs: { 'Speed': '400 Gb/s', 'Protocol': 'IB + RoCEv2 + Ethernet', 'Latency': '~600 ns', 'Cores (DPU)': '16× ARM A78' },
+    primary: 'NVIDIA'
+  },
+  'sv-cooling': {
+    eyebrow: 'SERVER · THERMAL',
+    title: 'Cold-Plate Liquid Cooling',
+    drillTo: null,
+    cost: 4,
+    what: `Each GPU and CPU sits under a copper cold plate with micro-channel jet impingement. Coolant enters at ~32 °C and leaves ~13 °C warmer, carrying away ~1.2 kW per plate. Quick-disconnects let trays be hot-swapped in seconds.`,
+    why: `Direct-to-chip liquid cooling lets a 1000 W chip stay below 90 °C in a 35 °C room — physically impossible with air. Without it, no Blackwell, no Rubin.`,
+    who: ['CoolIT Systems', 'Asetek', 'Vertiv (formerly Cooltera)', 'Boyd', 'Lenovo Neptune'],
+    ai: `Recycled warm water can heat office buildings or districts — Microsoft and Meta deploy this in production today.`,
+    specs: { 'Heat removal': '~1.2 kW per plate', 'Coolant': 'PG25 water/glycol', 'ΔT': '~13 °C', 'Pressure drop': '<2 bar' }
+  },
+  'sv-ssd': {
+    eyebrow: 'SERVER · STORAGE',
+    title: 'Boot / Scratch NVMe',
+    drillTo: null,
+    cost: 1,
+    what: `A small array of NVMe SSDs in the server tray holds the OS image, container layers, and a scratch space for shuffle buffers and intermediate gradient checkpoints. Persistent training data lives elsewhere on the parallel filesystem.`,
+    why: `Local SSDs absorb the I/O spikes that would otherwise saturate the cluster network during checkpointing.`,
+    who: ['Samsung', 'Micron', 'Solidigm', 'Kioxia'],
+    ai: `Checkpoint to local SSD first; replicate asynchronously to object storage. Gives the cluster a <em>seconds</em> RTO instead of minutes.`,
+    specs: { 'Form factor': 'E1.S', 'Capacity': '4× 7.68 TB', 'Throughput': '~14 GB/s', 'PCIe': 'Gen5 ×4' }
+  },
+
+  /* ============== LEVEL 3 — GPU PACKAGE ============== */
+  'ch-substrate': {
+    eyebrow: 'PACKAGE · BASE',
+    title: 'Organic Substrate',
+    drillTo: null,
+    cost: 4,
+    what: `The package substrate is a multi-layer organic PCB that fans out the dense interposer signals to the BGA balls underneath. It's also the mechanical anchor for the entire chip stack.`,
+    why: `Substrate warpage and signal integrity become first-order concerns at 100+ mm² package sizes. AT&S, Ibiden, and Unimicron own this market.`,
+    who: ['Ibiden', 'Unimicron', 'AT&S', 'Shinko Electric'],
+    ai: `The unsung hero — substrate supply has been a bottleneck for advanced packaging in 2023–2025.`,
+    specs: { 'Layers': '14–18', 'Pitch': '~100 µm BGA', 'Dimension': '~80×100 mm' }
+  },
+  'ch-interposer': {
+    eyebrow: 'PACKAGE · 2.5D',
+    title: 'Silicon Interposer (CoWoS)',
+    drillTo: null,
+    cost: 8,
+    what: `A passive silicon "circuit board" sitting between substrate and dies. It carries the ultra-dense, ultra-short traces between GPU compute dies and HBM stacks — far higher density than any organic substrate could provide.`,
+    why: `<strong>CoWoS capacity at TSMC is THE bottleneck</strong> of AI hardware. Every Blackwell, every MI300X, every TPU sits on one of these. Capacity expansion is measured in years.`,
+    who: ['TSMC (CoWoS-S/L/R)', 'Intel (EMIB)', 'Samsung (I-Cube)', 'ASE / Amkor (assembly)'],
+    ai: `Without advanced packaging, HBM cannot connect to compute at the required bandwidth — the entire AI accelerator category collapses.`,
+    specs: { 'Process': '65 nm passive Si', 'Reticle limit': '~3.3× exceeded with CoWoS-L', 'Bumps': '>100 000 µ-bumps' },
+    primary: 'TSMC'
+  },
+  'ch-hbm': {
+    eyebrow: 'PACKAGE · MEMORY',
+    title: 'HBM3e Stack (8-Hi)',
+    drillTo: null,
+    cost: 14,
+    what: `Eight DRAM dies stacked vertically and bonded with TSVs, sitting next to the compute die. Each stack delivers ~1.2 TB/s — bandwidth no DIMM-form-factor memory can approach.`,
+    why: `LLM inference is memory-bandwidth-bound. Every parameter must be read once per token. A doubling of HBM bandwidth doubles tokens-per-second on most workloads.`,
+    who: ['SK hynix (lead)', 'Micron', 'Samsung'],
+    ai: `Holds model weights and KV-cache during inference; activations and gradients during training. Capacity per GPU is the binding constraint on context length and batch size.`,
+    specs: { 'Capacity': '24 GB per stack (8-Hi)', 'Bandwidth': '~1.2 TB/s per stack', 'I/O': '1024-bit', 'Pin speed': '9.6 Gb/s' },
+    primary: 'SK hynix'
+  },
+  'ch-die': {
+    eyebrow: 'PACKAGE · COMPUTE',
+    title: 'Compute Die (GPU Logic)',
+    drillTo: 'silicon',
+    cost: 30,
+    what: `Two reticle-sized compute dies fused with NV-HBI (10 TB/s) appear to software as a single GPU. Each die packs ~104 B transistors of streaming multiprocessors, tensor cores, L2 cache, and HBM controllers.`,
+    why: `When even a 4 nm reticle (~858 mm²) isn't large enough for a single die, you build two and link them so tightly the OS can't tell the difference.`,
+    who: ['NVIDIA (designer)', 'TSMC 4NP (fab)'],
+    ai: `Hosts every floating-point operation in modern AI: matrix multiplies, attention, layer norm, embeddings. Click in to see the streaming multiprocessor.`,
+    specs: { 'Transistors': '104 B per die', 'Process': 'TSMC 4NP', 'Die area': '~800 mm²', 'NV-HBI': '10 TB/s' },
+    primary: 'NVIDIA'
+  },
+  'ch-c2c': {
+    eyebrow: 'PACKAGE · INTERCONNECT',
+    title: 'NV-HBI · Chip-to-Chip',
+    drillTo: null,
+    cost: 2,
+    what: `NVIDIA High-Bandwidth Interface — a proprietary die-to-die link running through the silicon interposer at 10 TB/s, low enough latency that two physical dies behave as one logical GPU.`,
+    why: `Foundry reticle limits cap monolithic die size. NV-HBI is how Blackwell breaks past that ceiling without paying the latency cost of going through HBM or PCIe.`,
+    who: ['NVIDIA'],
+    ai: `Lets a single AI kernel address the full 192 GB HBM and 16k+ cores without software-visible NUMA effects.`,
+    specs: { 'Bandwidth': '10 TB/s bidirectional', 'Topology': 'Direct die-to-die', 'Energy': '~1 pJ/bit' }
+  },
+  'ch-zoom-die': {
+    eyebrow: 'PACKAGE · DRILL DOWN',
+    title: 'Zoom Into Silicon',
+    drillTo: 'silicon',
+    cost: 0,
+    what: `Drill down to the streaming-multiprocessor and transistor level — see how a single SM is built from tensor cores, CUDA cores, shared memory, and the power and TSV grids that feed them.`,
+    why: ``,
+    who: [],
+    ai: ``,
+    specs: {}
+  },
+
+  /* ============== LEVEL 4 — SILICON ============== */
+  'si-tensor': {
+    eyebrow: 'SILICON · COMPUTE BLOCK',
+    title: 'Tensor Cores',
+    drillTo: null,
+    cost: 0,
+    what: `Specialized matrix-multiply engines. A single tensor-core instruction issues a small dense matmul (e.g. 16×16×16) per cycle in low-precision formats: <strong>FP4</strong>, <strong>FP8</strong>, <strong>BF16</strong>, <strong>TF32</strong>.`,
+    why: `Tensor cores deliver <strong>50–100×</strong> the FLOPs/area of CUDA cores for AI workloads. They are the reason GPUs out-compete CPUs by such enormous margins on neural networks.`,
+    who: ['NVIDIA (5th-gen, Blackwell)', 'AMD (Matrix cores)', 'Google (TPU MXU)', 'Intel (AMX, Gaudi MME)'],
+    ai: `Every GEMM in attention, every linear layer, every convolution is a tensor-core call in disguise. Modern frameworks emit them automatically through cuBLAS / CUTLASS / Triton.`,
+    specs: { 'Matrix': '16×16×16 FP8 per cycle', 'Per SM': '4 cores (Blackwell)', 'Precision': 'FP4/FP8/BF16/TF32/INT8', 'Throughput': '~5 PFLOPS dense FP4 / SM' },
+    primary: 'NVIDIA'
+  },
+  'si-cuda': {
+    eyebrow: 'SILICON · COMPUTE BLOCK',
+    title: 'CUDA / SIMT Cores',
+    drillTo: null,
+    cost: 0,
+    what: `The general-purpose lanes of the streaming multiprocessor. Each CUDA core is a 32-bit FP/INT ALU; together they execute thread-warps in lockstep (Single-Instruction Multiple-Thread).`,
+    why: `Not everything in AI is a matmul. Softmax, layer-norm, embeddings, sampling, RoPE, and most data-movement code runs on CUDA cores. Tensor cores would starve without them.`,
+    who: ['NVIDIA', 'AMD (Stream Processors)', 'Intel (Xe Vector Engines)'],
+    ai: `Carry the long tail of operators in any framework. Triton kernels emit CUDA-core code as the default fallback when no tensor-core mapping exists.`,
+    specs: { 'Per SM': '128 (Blackwell)', 'Precision': 'FP32 / FP64 / INT32', 'Issue rate': '1 inst/clk warp', 'Warp size': '32 threads' }
+  },
+  'si-cache': {
+    eyebrow: 'SILICON · MEMORY HIERARCHY',
+    title: 'Shared Memory + L1 + TMA',
+    drillTo: null,
+    cost: 0,
+    what: `Per-SM scratchpad RAM (228 KB) explicitly managed by the kernel programmer, plus a hardware <strong>Tensor Memory Accelerator</strong> that asynchronously copies tiles between HBM and shared memory while the math engines are busy.`,
+    why: `The performance gap between L1 and HBM is ~20×. Smart use of shared memory and TMA is the single biggest knob in modern kernel writing.`,
+    who: ['NVIDIA'],
+    ai: `Every well-tuned attention or matmul kernel manually orchestrates its data through shared memory. Flash-Attention is famously a shared-memory-aware reformulation.`,
+    specs: { 'Shared/SM': '228 KB', 'L2 (die)': '~50 MB', 'TMA': 'Async DMA engine', 'L1 latency': '~30 cycles' }
+  },
+  'si-tsv': {
+    eyebrow: 'SILICON · INTERCONNECT',
+    title: 'TSVs · Through-Silicon Vias',
+    drillTo: null,
+    cost: 0,
+    what: `Vertical copper tunnels etched through the silicon interposer (and through the HBM stack) to electrically connect dies stacked above and below. Pitch is measured in microns; counts in the hundreds of thousands.`,
+    why: `2.5D and 3D packaging only work because TSVs let signals travel <strong>vertically</strong> instead of around the edges of dies — orders of magnitude shorter than any board-level trace.`,
+    who: ['TSMC', 'Samsung', 'SK hynix', 'Intel'],
+    ai: `Without TSVs, HBM bandwidth would be capped at ~100 GB/s. With them, 1.2 TB/s per stack is routine.`,
+    specs: { 'Pitch': '~10 µm', 'Diameter': '~5 µm', 'Aspect ratio': '10:1', 'Material': 'Cu fill, SiO₂ liner' }
+  },
+  'si-power': {
+    eyebrow: 'SILICON · POWER',
+    title: 'Power Grid',
+    drillTo: null,
+    cost: 0,
+    what: `Fine copper mesh threaded through the upper metal layers (and, in upcoming nodes, through the <strong>backside</strong> of the wafer) delivering 1000+ amps to the active devices below.`,
+    why: `IR-drop and electromigration set the actual frequency ceiling of a GPU. Backside power delivery (BSPDN) coming with TSMC N2/A16 frees the front-side metal stack for signals only.`,
+    who: ['TSMC', 'Intel (PowerVia, first to ship BSPDN)'],
+    ai: `A bigger chip with worse power delivery isn't faster. Power delivery has become a major architectural constraint at 1000+ W TDPs.`,
+    specs: { 'Current': '~1000 A per die', 'Voltage': '0.6–0.8 V core', 'Layers': '13+ metal stack', 'Future': 'BSPDN at N2/A16' }
+  },
+  'si-transistor': {
+    eyebrow: 'SILICON · ATOMIC SCALE',
+    title: 'Transistor (FinFET / GAA)',
+    drillTo: null,
+    cost: 0,
+    what: `The fundamental switch. Modern AI silicon uses <strong>FinFET</strong> (3D fin, in use since ~22 nm) or <strong>Gate-All-Around (GAA)</strong> nanosheets (incoming at TSMC N2 / Samsung 3GAP). One Blackwell GPU contains <strong>208 billion</strong> of them.</p><p>At 4 nm, the fin pitch is well below the wavelength of visible light — making them only with <strong>EUV lithography</strong>, the most complex machine humans build, and only ASML makes it.`,
+    why: `Every FLOP, every bit moved, every watt burned ultimately resolves to a transistor switching state. Moore's Law is the slow march of more of these per square millimeter.`,
+    who: ['TSMC (N5/N4/N3/N2)', 'Samsung (3GAE/3GAP)', 'Intel (18A)', 'ASML (EUV machines)'],
+    ai: `When new AI hardware launches, it's because a denser/faster transistor became available. Algorithm and data scaling get headlines; transistor scaling is the engine.`,
+    specs: { 'Type': 'FinFET (4 nm) / GAA (≤3 nm)', 'Fin pitch': '~24 nm', 'Gate length': '~14 nm effective', 'Switch energy': '~10⁻¹⁸ J' },
+    primary: 'TSMC'
+  }
+};
+
+/* ================================================================
+   LEVEL META — for breadcrumbs and the info panel "Cost contribution"
+   ================================================================ */
+const LEVELS = {
+  hero:       { title: 'Home',           costBase: 'datacenter' },
+  datacenter: { title: 'Data Centre',    costBase: 'datacenter' },
+  rack:       { title: 'Rack',           costBase: 'rack' },
+  server:     { title: 'Server Node',    costBase: 'server' },
+  chip:       { title: 'GPU Package',    costBase: 'chip' },
+  silicon:    { title: 'Silicon Die',    costBase: 'silicon' },
+};
+
+/* ================================================================
+   GENERATE GPU SERVER ROWS programmatically (cleaner than markup)
+   ================================================================ */
+(function buildRackServers() {
+  const host = document.getElementById('gpu-servers');
+  const ROWS = 8;
+  const startY = 250;
+  const rowH   = 46;
+  const w = 520;
+  for (let i = 0; i < ROWS; i++) {
+    const y = startY + i * rowH;
+    const ns = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(ns, 'g');
+    g.setAttribute('class', 'hot');
+    g.setAttribute('data-comp', 'rk-gpu');
+    g.setAttribute('data-idx', i);
+    g.innerHTML = `
+      <rect x="440" y="${y}" width="${w}" height="40" rx="4" fill="url(#serverChassis)" stroke="rgba(118,228,255,0.22)"/>
+      <rect x="450" y="${y+5}" width="500" height="30" rx="2" fill="#0c1322"/>
+      <!-- 8 GPU dots -->
+      <g fill="#1f3458" stroke="rgba(118,228,255,0.5)" stroke-width="0.6">
+        <rect x="470"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="520"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="570"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="620"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="670"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="720"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="770"  y="${y+10}" width="46" height="20" rx="2"/>
+        <rect x="820"  y="${y+10}" width="46" height="20" rx="2"/>
+      </g>
+      <!-- LEDs -->
+      <circle cx="876" cy="${y+12}" r="1.6" fill="#76e4ff"><animate attributeName="opacity" values="0.4;1;0.4" dur="${1.2 + (i%4)*0.2}s" repeatCount="indefinite"/></circle>
+      <circle cx="884" cy="${y+12}" r="1.6" fill="#76e4ff" opacity="0.5"/>
+      <circle cx="876" cy="${y+22}" r="1.6" fill="#b48cff"><animate attributeName="opacity" values="0.4;1;0.4" dur="${1.6 + (i%3)*0.3}s" repeatCount="indefinite"/></circle>
+      <circle cx="884" cy="${y+22}" r="1.6" fill="#ffb066" opacity="0.7"/>
+      <text x="932" y="${y+25}" text-anchor="end" class="label-text" style="font-size:9px; fill:#5b6987;">TRAY ${(i+1).toString().padStart(2,'0')} · 8× GPU · 10 kW</text>
+      <text x="455" y="${y+23}" class="label-text" style="font-size:9px; fill:#5b6987;">SXM</text>
+    `;
+    host.appendChild(g);
+  }
+})();
+
+/* generate solder bumps in chip view */
+(function buildBumps() {
+  const host = document.getElementById('solderRow');
+  if (!host) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 22; c++) {
+      const cx = 220 + c * 44;
+      const cy = 745 + r * 6;
+      // sparser pattern - decorative outside the substrate
+      if (cy > 770 || cx > 1200) continue;
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', cx);
+      dot.setAttribute('cy', cy);
+      dot.setAttribute('r', 1.6);
+      host.appendChild(dot);
+    }
+  }
+})();
+
+/* ================================================================
+   APP STATE
+   ================================================================ */
+const state = {
+  scene: 'hero',
+  history: ['hero'],
+  activeComp: null,
+  activeTab: 'what',
+};
+
+const sceneEls = {
+  hero:       document.getElementById('scene-hero'),
+  datacenter: document.getElementById('scene-datacenter'),
+  rack:       document.getElementById('scene-rack'),
+  server:     document.getElementById('scene-server'),
+  chip:       document.getElementById('scene-chip'),
+  silicon:    document.getElementById('scene-silicon'),
+};
+
+/* ================================================================
+   SCENE SWITCHING
+   ================================================================ */
+function showScene(name, opts = {}) {
+  const cur = state.scene;
+  if (cur === name) return;
+
+  const oldEl = sceneEls[cur];
+  const newEl = sceneEls[name];
+
+  if (oldEl) {
+    oldEl.classList.remove('active');
+    oldEl.classList.add('exiting');
+    setTimeout(() => oldEl.classList.remove('exiting'), 900);
+  }
+  newEl.classList.add('active');
+
+  state.scene = name;
+  if (!opts.fromHistory) {
+    if (state.history[state.history.length - 1] !== name) state.history.push(name);
+  }
+
+  // Adjust scene-wrap to full-width on hero (no panel needs detailed component info)
+  const wrap = document.getElementById('scene-wrap');
+  const panelEl = document.getElementById('infoPanel');
+  if (name === 'hero') {
+    wrap.classList.add('full');
+    panelEl.classList.add('hidden');
+  } else {
+    wrap.classList.remove('full');
+    panelEl.classList.remove('hidden');
+  }
+
+  // Reset panel to scene overview (panel stays permanent within sub-levels)
+  state.activeComp = null;
+  renderPanelDefault();
+  updateBreadcrumbs();
+  updateMinimap();
+  updateHint();
+}
+
+function goBack() {
+  if (state.history.length <= 1) {
+    showScene('hero');
+    state.history = ['hero'];
+    return;
+  }
+  state.history.pop();
+  const prev = state.history[state.history.length - 1] || 'hero';
+  showScene(prev, { fromHistory: true });
+}
+
+function goHome() {
+  showScene('hero');
+  state.history = ['hero'];
+}
+
+/* ================================================================
+   BREADCRUMBS
+   ================================================================ */
+function updateBreadcrumbs() {
+  const bc = document.getElementById('breadcrumbs');
+  bc.innerHTML = '';
+  const seen = new Set();
+  const trail = state.history.filter(s => {
+    if (seen.has(s)) return false;
+    seen.add(s); return true;
+  });
+  trail.forEach((s, i) => {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'bc-sep';
+      sep.textContent = '›';
+      bc.appendChild(sep);
+    }
+    const el = document.createElement('span');
+    el.className = 'bc' + (i === trail.length - 1 ? ' active' : '');
+    el.textContent = LEVELS[s].title;
+    el.onclick = () => {
+      const idx = state.history.lastIndexOf(s);
+      if (idx >= 0) {
+        state.history = state.history.slice(0, idx + 1);
+        showScene(s, { fromHistory: true });
+      }
+    };
+    bc.appendChild(el);
+  });
+}
+
+/* ================================================================
+   MINIMAP
+   ================================================================ */
+function updateMinimap() {
+  document.querySelectorAll('.minimap-step').forEach(el => {
+    const sceneName = el.dataset.scene;
+    const visited = state.history.includes(sceneName) || sceneName === state.scene;
+    el.classList.toggle('active', sceneName === state.scene);
+    el.classList.toggle('disabled', !visited && sceneName !== 'hero' && sceneName !== 'rack');
+    el.onclick = () => {
+      // Allow navigation to scenes already in history; hero and datacenter are roots.
+      if (sceneName === 'hero') { goHome(); return; }
+      if (sceneName === 'datacenter') { showScene('datacenter'); state.history = ['hero', 'datacenter']; return; }
+      const idx = state.history.lastIndexOf(sceneName);
+      if (idx >= 0) {
+        state.history = state.history.slice(0, idx + 1);
+        showScene(sceneName, { fromHistory: true });
+      }
+    };
+  });
+}
+
+/* ================================================================
+   HOVER TOOLTIP
+   ================================================================ */
+const tooltip = document.getElementById('tooltip');
+const ttName = document.getElementById('tt-name');
+const ttMeta = document.getElementById('tt-meta');
+
+document.addEventListener('mouseover', (e) => {
+  const hot = e.target.closest('.hot');
+  if (!hot) { tooltip.classList.remove('show'); return; }
+  const compId = hot.dataset.comp;
+  const data = DATA[compId];
+  if (!data) { tooltip.classList.remove('show'); return; }
+
+  ttName.textContent = data.title;
+  const idx = hot.dataset.idx;
+  let metaParts = [];
+  if (data.cost > 0) metaParts.push(`${data.cost}% of rack BoM`);
+  if (data.drillTo) metaParts.push('click to zoom in →');
+  ttMeta.textContent = metaParts.join('   ·   ');
+
+  const r = hot.getBoundingClientRect();
+  tooltip.style.left = (r.left + r.width / 2) + 'px';
+  tooltip.style.top  = r.top + 'px';
+  tooltip.classList.add('show');
+});
+
+document.addEventListener('mouseout', (e) => {
+  const next = e.relatedTarget;
+  if (!next || !next.closest || !next.closest('.hot')) tooltip.classList.remove('show');
+});
+
+/* hide tooltip on scene change */
+const observer = new MutationObserver(() => tooltip.classList.remove('show'));
+Object.values(sceneEls).forEach(el => observer.observe(el, { attributes: true, attributeFilter: ['class'] }));
+
+/* ================================================================
+   COMPONENT CLICK
+   ================================================================ */
+document.addEventListener('click', (e) => {
+  const hot = e.target.closest('.hot');
+  if (!hot) return;
+  const compId = hot.dataset.comp;
+  const data = DATA[compId];
+  if (!data) return;
+
+  selectComponent(compId);
+
+  // Visually dim siblings briefly
+  const scene = sceneEls[state.scene];
+  if (scene) {
+    scene.querySelectorAll('.hot').forEach(h => h.classList.remove('dim'));
+    scene.querySelectorAll('.hot').forEach(h => {
+      if (h !== hot && h.dataset.comp !== compId) h.classList.add('dim');
+    });
+    setTimeout(() => scene.querySelectorAll('.hot').forEach(h => h.classList.remove('dim')), 1400);
+  }
+});
+
+/* ================================================================
+   INFO PANEL — permanent right rail, stacked sections
+   ================================================================ */
+const panel = document.getElementById('infoPanel');
+const ipEyebrow = document.getElementById('ip-eyebrow');
+const ipTitle = document.getElementById('ip-title');
+const ipBody = document.getElementById('ip-body');
+const ipClose = document.getElementById('ip-close');
+
+/* Per-scene defaults (shown when no specific component is selected) */
+const SCENE_INTRO = {
+  hero: {
+    eyebrow: 'EXPLORATION',
+    title: 'Anatomy of an AI Data Centre',
+    blurb: `Click <strong>Begin Exploration</strong> to drop into a hyperscale AI data centre. From there you'll be able to drill from the campus floor plan down to a single transistor.`,
+    quick: []
+  },
+  datacenter: {
+    eyebrow: 'LEVEL 0 · DATA CENTRE',
+    title: 'Hyperscale AI Data Centre',
+    blurb: `A 96 MW campus that hosts ~18,000 GPUs across multiple training and inference pods, supported by its own substation, cooling plant, battery hall, and carrier-neutral fiber. Click the highlighted <em>★ AI Training Pod</em> to descend into a single rack.`,
+    quick: ['dc-aipod', 'dc-power', 'dc-cooling', 'dc-spine', 'dc-ups', 'dc-fiber', 'dc-storage']
+  },
+  rack: {
+    eyebrow: 'LEVEL 1 · RACK',
+    title: 'Data-Center Rack',
+    blurb: `An NVL72-class AI rack draws roughly <em>120 kW</em> and packs ~$3M of silicon into a single 19-inch frame. Click any glowing component on the left to see what it is, who makes it, what it costs, and how much it matters for AI.`,
+    quick: ['rk-gpu', 'rk-nvlink', 'rk-switch', 'rk-cooling', 'rk-psu', 'rk-storage']
+  },
+  server: {
+    eyebrow: 'LEVEL 2 · SERVER',
+    title: 'GPU Server Tray',
+    blurb: `Inside one tray: 8 GPU packages, a host CPU, DDR/LPDDR memory, NICs, NVMe, VRMs, and full direct-liquid cooling. About <em>70%</em> of an AI rack's BoM lives inside trays like this.`,
+    quick: ['sv-gpu', 'sv-cpu', 'sv-nic', 'sv-board', 'sv-cooling']
+  },
+  chip: {
+    eyebrow: 'LEVEL 3 · PACKAGE',
+    title: 'GPU Package (CoWoS)',
+    blurb: `A single Blackwell-class package fuses two reticle-sized compute dies with four HBM3e stacks on a silicon interposer. The CoWoS line at TSMC is the industry's tightest bottleneck.`,
+    quick: ['ch-die', 'ch-hbm', 'ch-interposer', 'ch-substrate', 'ch-c2c']
+  },
+  silicon: {
+    eyebrow: 'LEVEL 4 · SILICON',
+    title: 'Streaming Multiprocessor',
+    blurb: `A single SM contains tensor cores, CUDA cores, shared memory, TSV stitching, and a power grid — all built from <em>208 billion</em> transistors at the 4 nm node.`,
+    quick: ['si-tensor', 'si-cuda', 'si-cache', 'si-tsv', 'si-power', 'si-transistor']
+  }
+};
+
+function selectComponent(compId) {
+  state.activeComp = compId;
+  renderPanelDetail(compId);
+  // scroll panel back to top so user sees the title
+  ipBody.scrollTop = 0;
+}
+
+function clearSelection() {
+  state.activeComp = null;
+  renderPanelDefault();
+}
+
+ipClose.onclick = clearSelection;
+
+function setHeader(eyebrow, title) {
+  ipEyebrow.textContent = eyebrow;
+  ipTitle.textContent = title;
+}
+
+/* ---------- DEFAULT (no component selected) ---------- */
+function renderPanelDefault() {
+  const intro = SCENE_INTRO[state.scene] || SCENE_INTRO.rack;
+  setHeader(intro.eyebrow, intro.title);
+  ipClose.style.visibility = 'hidden';
+
+  const quickHtml = intro.quick.length ? `
+    <div class="section">
+      <div class="section-label">Explore on this level</div>
+      <div class="quicklist">
+        ${intro.quick.map(id => {
+          const d = DATA[id]; if (!d) return '';
+          return `<div class="quicklist-item" data-quick="${id}">
+            <span class="ql-dot"></span>
+            <span>${d.title}</span>
+            ${d.cost > 0 ? `<span class="ql-meta">${d.cost}%</span>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  ipBody.innerHTML = `
+    <div class="info-section empty-state">
+      <div class="empty-illu"></div>
+      <h3>${intro.title}</h3>
+      <p>${intro.blurb}</p>
+    </div>
+    ${quickHtml}
+    <div class="section">
+      <div class="section-label muted">How to navigate</div>
+      <p style="font-size:13px; color: var(--ink-2); line-height:1.6; margin:0;">
+        <strong>Click</strong> any glowing part on the diagram to load its full breakdown here.
+        <strong>Double-click</strong> a part marked with "→" to zoom one level deeper.
+        Use <strong>Back</strong>, <strong>Home</strong>, or the breadcrumbs to retrace.
+      </p>
+    </div>
+  `;
+  // wire the quick-pick items
+  ipBody.querySelectorAll('[data-quick]').forEach(el => {
+    el.onclick = () => selectComponent(el.dataset.quick);
+  });
+}
+
+/* ---------- DETAIL (component selected) ---------- */
+function renderPanelDetail(compId) {
+  const data = DATA[compId];
+  if (!data) return;
+  setHeader(data.eyebrow, data.title);
+  ipClose.style.visibility = 'visible';
+
+  const parent = guessParent(compId);
+  const parentName = LEVELS[parent].title;
+
+  // Build sections, only showing those that have content
+  const sections = [];
+
+  // Section: drill-down CTA (top, if available)
+  if (data.drillTo) {
+    sections.push(`
+      <div class="info-section section" style="border-bottom:none; padding-bottom:0;">
+        <button class="zoom-cta" data-drill="${data.drillTo}">
+          Zoom into ${LEVELS[data.drillTo].title}
+        </button>
+      </div>
+    `);
+  }
+
+  // Section: What
+  if (data.what) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label">What is this</div>
+        <p>${data.what}</p>
+      </div>
+    `);
+  }
+
+  // Section: Why it matters
+  if (data.why) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label warn">Why it matters</div>
+        <p>${data.why}</p>
+      </div>
+    `);
+  }
+
+  // Section: AI workload relevance
+  if (data.ai) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label violet">AI workload relevance</div>
+        <p>${data.ai}</p>
+      </div>
+    `);
+  }
+
+  // Section: Who makes it
+  if (data.who && data.who.length) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label">Who makes it</div>
+        <p style="font-size:13px; color: var(--ink-2); margin-bottom:10px;">Primary suppliers and competitors in this category:</p>
+        <div class="maker-list">
+          ${data.who.map(w => {
+            const isPrimary = data.primary && w.toLowerCase().includes(data.primary.toLowerCase());
+            return `<span class="maker-pill ${isPrimary ? 'primary' : ''}">${w}</span>`;
+          }).join('')}
+        </div>
+        ${data.primary ? `<p style="margin-top:12px; font-size:12px; color: var(--ink-3);">Highlighted: dominant share or lead supplier.</p>` : ''}
+      </div>
+    `);
+  }
+
+  // Section: Cost contribution
+  if (data.cost > 0) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label warm">Cost contribution</div>
+        <p style="font-size:13px; color: var(--ink-2); margin-bottom:10px;">
+          Approximate share of this component within its parent <strong>${parentName.toLowerCase()}</strong>.
+        </p>
+        <div class="cost-bar">
+          <div class="cost-bar-label"><span>OF PARENT BoM</span><b>~${data.cost}%</b></div>
+          <div class="cost-bar-track"><div class="cost-bar-fill" data-fill="${data.cost}" style="width:0%"></div></div>
+        </div>
+        <p style="margin-top:12px; font-size:11.5px; color: var(--ink-3); line-height:1.5;">
+          Estimates synthesized from public teardowns and analyst reports — for educational reference only.
+        </p>
+      </div>
+    `);
+  }
+
+  // Section: Specs
+  if (data.specs && Object.keys(data.specs).length) {
+    sections.push(`
+      <div class="info-section section">
+        <div class="section-label">Specifications</div>
+        <dl class="kv-grid">
+          ${Object.entries(data.specs).map(([k,v]) => `<dt>${k}</dt><dd><b>${v}</b></dd>`).join('')}
+        </dl>
+      </div>
+    `);
+  }
+
+  ipBody.innerHTML = sections.join('');
+
+  // Animate cost bar
+  requestAnimationFrame(() => {
+    const fill = ipBody.querySelector('.cost-bar-fill[data-fill]');
+    if (fill) fill.style.width = fill.dataset.fill + '%';
+  });
+
+  // Wire the drill button
+  const drillBtn = ipBody.querySelector('[data-drill]');
+  if (drillBtn) drillBtn.onclick = () => showScene(drillBtn.dataset.drill);
+}
+
+function guessParent(compId) {
+  if (compId.startsWith('dc-')) return 'datacenter';
+  if (compId.startsWith('rk-')) return 'rack';
+  if (compId.startsWith('sv-')) return 'server';
+  if (compId.startsWith('ch-')) return 'chip';
+  if (compId.startsWith('si-')) return 'silicon';
+  return 'datacenter';
+}
+
+/* Backwards-compat: closePanel now just clears selection */
+function closePanel() { clearSelection(); }
+
+/* expose drill helper for any inline buttons */
+window.__drill = function(target) { showScene(target); };
+
+/* clicking on a "drillTo" component twice opens panel first, then drills.
+   Add a small helper: double-click drills directly.                    */
+document.addEventListener('dblclick', (e) => {
+  const hot = e.target.closest('.hot');
+  if (!hot) return;
+  const data = DATA[hot.dataset.comp];
+  if (data && data.drillTo) showScene(data.drillTo);
+});
+
+/* ================================================================
+   GUIDED TOUR
+   ================================================================ */
+const TOUR_STEPS = [
+  { scene: 'datacenter', comp: 'dc-aipod',   wait: 3800 },
+  { scene: 'datacenter', comp: 'dc-power',   wait: 3500 },
+  { scene: 'datacenter', comp: 'dc-cooling', wait: 3500 },
+  { scene: 'rack',       comp: 'rk-gpu',        wait: 3800, transition: true },
+  { scene: 'rack',       comp: 'rk-nvlink',     wait: 3500 },
+  { scene: 'server',     comp: 'sv-gpu',        wait: 3800, transition: true },
+  { scene: 'server',     comp: 'sv-cpu',        wait: 3500 },
+  { scene: 'chip',       comp: 'ch-hbm',        wait: 4000, transition: true },
+  { scene: 'chip',       comp: 'ch-die',        wait: 4000 },
+  { scene: 'silicon',    comp: 'si-tensor',     wait: 4000, transition: true },
+  { scene: 'silicon',    comp: 'si-transistor', wait: 4500 },
+];
+let tourTimer = null;
+function startTour() {
+  stopTour();
+  let i = 0;
+  const step = () => {
+    if (i >= TOUR_STEPS.length) { stopTour(); return; }
+    const s = TOUR_STEPS[i];
+    if (s.scene !== state.scene) showScene(s.scene);
+    setTimeout(() => selectComponent(s.comp), s.transition ? 700 : 200);
+    tourTimer = setTimeout(() => { i++; step(); }, s.wait);
+  };
+  step();
+}
+function stopTour() {
+  if (tourTimer) { clearTimeout(tourTimer); tourTimer = null; }
+}
+
+/* ================================================================
+   BUTTONS / KEYS
+   ================================================================ */
+document.getElementById('btn-begin').onclick = () => showScene('datacenter');
+document.getElementById('btn-tour-2').onclick = () => { showScene('datacenter'); setTimeout(startTour, 600); };
+document.getElementById('btn-tour').onclick = () => { if (state.scene === 'hero') showScene('datacenter'); setTimeout(startTour, 400); };
+document.getElementById('btn-back').onclick = goBack;
+document.getElementById('btn-home').onclick = goHome;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    stopTour();
+    if (state.activeComp) clearSelection();
+    else goBack();
+  }
+  if (e.key.toLowerCase() === 'h') goHome();
+  if (e.key.toLowerCase() === 't') { if (state.scene === 'hero') showScene('rack'); setTimeout(startTour, 400); }
+});
+
+/* ================================================================
+   HINT
+   ================================================================ */
+function updateHint() {
+  const hint = document.getElementById('hint');
+  if (state.scene === 'hero') { hint.classList.remove('show'); return; }
+  hint.classList.add('show');
+  setTimeout(() => hint.classList.remove('show'), 4500);
+}
+
+/* ================================================================
+   INITIAL RENDER
+   ================================================================ */
+updateBreadcrumbs();
+updateMinimap();
+renderPanelDefault();
+
+</script>
+</body>
+</html>
