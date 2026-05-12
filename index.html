@@ -2997,9 +2997,21 @@ setInterval(pulseTick, 200);
   // Web3Forms uses a fixed endpoint + access_key in the body. Formspree-style
   // services use a unique endpoint URL. We support both: presence of an access
   // key implies Web3Forms; otherwise we POST to whatever endpoint is given.
-  const endpoint = SIGNUP_ACCESS_KEY ? 'https://api.web3forms.com/submit' : SIGNUP_ENDPOINT;
-  if(!endpoint) return;
+ <script>
+// ====================== YOUR WEB3FORMS ACCESS KEY ======================
+const SIGNUP_ACCESS_KEY = "f5aaa88d-a89a-48e8-a5e6-a6fffc6b9eb8";
+// =======================================================================
+
+// ---- Signup modal (soft "30-second" prompt) ----
+(function initSignupModal(){
+  const endpoint = 'https://api.web3forms.com/submit';   // using your key
+
   const SIGNED_UP_KEY = 'vizogram_signed_up';
+  try { 
+    if(localStorage.getItem(SIGNED_UP_KEY) === '1') return; 
+  } catch(_){}
+
+  // ... rest of the function stays exactly the same ...
   // Mandatory signup: only signed-up users skip the modal. The previous
   // "dismissed for 7 days" flag is intentionally ignored — anyone who
   // dismissed before the gate became mandatory will see the modal again.
